@@ -11,22 +11,12 @@ interface HangHoa {
   MaTS?: string
   TenHang: string
   LoaiHang: LoaiHang
-  ThongTinHang?: string
   Hang?: string
   Model?: string
   NamSX?: number
-  MaKho?: number
-  TenKho?: string
-  MaNCC?: number
-  TenNCC?: string
-  MaNV_DangDung?: number
-  TenNV?: string
   TrangThai: string
-  TinhTrang?: string
+  ThongTinChiTiet?: string
 }
-
-interface Kho { MaKho: number; TenKho: string }
-interface NCC { MaNCC: number; TenNCC: string }
 
 const LOAI_HANG_OPTIONS = [
   { value: 'may_tinh', label: 'Máy tính' },
@@ -38,8 +28,8 @@ const LOAI_HANG_OPTIONS = [
 ]
 
 const TRANG_THAI_OPTIONS = [
-  { value: 'Trong kho', label: 'Trong kho' },
-  { value: 'Đang sử dụng', label: 'Đang sử dụng' },
+  { value: 'Mới', label: 'Mới' },
+  { value: 'Đang dùng', label: 'Đang dùng' },
   { value: 'Hỏng', label: 'Hỏng' },
   { value: 'Thanh lý', label: 'Thanh lý' }
 ]
@@ -53,22 +43,16 @@ const HangHoaPage = () => {
   const [filterLoai, setFilterLoai] = useState('')
   const [filterTrangThai, setFilterTrangThai] = useState('')
   const [saving, setSaving] = useState(false)
-  
-  const [khos, setKhos] = useState<Kho[]>([])
-  const [nccs, setNccs] = useState<NCC[]>([])
 
   const [formData, setFormData] = useState({
     MaTS: '',
     TenHang: '',
     LoaiHang: 'may_tinh' as LoaiHang,
-    ThongTinHang: '',
     Hang: '',
     Model: '',
     NamSX: '',
-    MaKho: '',
-    MaNCC: '',
-    TrangThai: 'Trong kho',
-    TinhTrang: ''
+    TrangThai: 'Mới',
+    ThongTinChiTiet: ''
   })
 
   const fetchData = async () => {
@@ -79,15 +63,8 @@ const HangHoaPage = () => {
       if (filterLoai) params.loaiHang = filterLoai
       if (filterTrangThai) params.trangThai = filterTrangThai
       
-      const [hhRes, khoRes, nccRes] = await Promise.all([
-        axios.get('/hanghoa', { params }),
-        axios.get('/warehouses'),
-        axios.get('/ncc')
-      ])
-      
+      const hhRes = await axios.get('/hanghoa', { params })
       setHangHoas(hhRes.data.data || [])
-      setKhos(khoRes.data.data || [])
-      setNccs(nccRes.data.data || [])
     } catch (error) {
       console.error('Lỗi:', error)
     } finally {
@@ -102,9 +79,9 @@ const HangHoaPage = () => {
   const openAddModal = () => {
     setEditingItem(null)
     setFormData({
-      MaTS: '', TenHang: '', LoaiHang: 'may_tinh', ThongTinHang: '',
-      Hang: '', Model: '', NamSX: '', MaKho: '', MaNCC: '',
-      TrangThai: 'Trong kho', TinhTrang: ''
+      MaTS: '', TenHang: '', LoaiHang: 'may_tinh',
+      Hang: '', Model: '', NamSX: '',
+      TrangThai: 'Mới', ThongTinChiTiet: ''
     })
     setShowModal(true)
   }
@@ -115,14 +92,11 @@ const HangHoaPage = () => {
       MaTS: item.MaTS || '',
       TenHang: item.TenHang,
       LoaiHang: item.LoaiHang,
-      ThongTinHang: item.ThongTinHang || '',
       Hang: item.Hang || '',
       Model: item.Model || '',
       NamSX: item.NamSX?.toString() || '',
-      MaKho: item.MaKho?.toString() || '',
-      MaNCC: item.MaNCC?.toString() || '',
       TrangThai: item.TrangThai,
-      TinhTrang: item.TinhTrang || ''
+      ThongTinChiTiet: item.ThongTinChiTiet || ''
     })
     setShowModal(true)
   }
@@ -137,9 +111,7 @@ const HangHoaPage = () => {
 
       const payload = {
         ...formData,
-        NamSX: formData.NamSX ? parseInt(formData.NamSX) : null,
-        MaKho: formData.MaKho ? parseInt(formData.MaKho) : null,
-        MaNCC: formData.MaNCC ? parseInt(formData.MaNCC) : null
+        NamSX: formData.NamSX ? parseInt(formData.NamSX) : null
       }
 
       if (editingItem) {
@@ -170,8 +142,8 @@ const HangHoaPage = () => {
 
   const getTrangThaiBadge = (trangThai: string) => {
     const variants: Record<string, 'success' | 'info' | 'danger' | 'default'> = {
-      'Trong kho': 'success',
-      'Đang sử dụng': 'info',
+      'Mới': 'success',
+      'Đang dùng': 'info',
       'Hỏng': 'danger',
       'Thanh lý': 'default'
     }
@@ -203,16 +175,6 @@ const HangHoaPage = () => {
       key: 'LoaiHang', 
       header: 'Loại',
       render: (item: HangHoa) => <Badge variant="purple">{getLoaiHangLabel(item.LoaiHang)}</Badge>
-    },
-    { 
-      key: 'TenKho', 
-      header: 'Kho',
-      render: (item: HangHoa) => <span className="text-gray-300">{item.TenKho || '-'}</span>
-    },
-    { 
-      key: 'TenNV', 
-      header: 'Người dùng',
-      render: (item: HangHoa) => <span className="text-gray-300">{item.TenNV || '-'}</span>
     },
     { 
       key: 'TrangThai', 
@@ -379,23 +341,6 @@ const HangHoaPage = () => {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <Select
-              label="Kho hàng"
-              options={khos.map(k => ({ value: k.MaKho, label: k.TenKho }))}
-              value={formData.MaKho}
-              onChange={(v) => setFormData({ ...formData, MaKho: v })}
-              placeholder="-- Chọn kho --"
-            />
-            <Select
-              label="Nhà cung cấp"
-              options={nccs.map(n => ({ value: n.MaNCC, label: n.TenNCC }))}
-              value={formData.MaNCC}
-              onChange={(v) => setFormData({ ...formData, MaNCC: v })}
-              placeholder="-- Chọn NCC --"
-            />
-          </div>
-
           <Select
             label="Trạng thái"
             options={TRANG_THAI_OPTIONS}
@@ -406,8 +351,8 @@ const HangHoaPage = () => {
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">Thông tin chi tiết</label>
             <textarea
-              value={formData.ThongTinHang}
-              onChange={(e) => setFormData({ ...formData, ThongTinHang: e.target.value })}
+              value={formData.ThongTinChiTiet}
+              onChange={(e) => setFormData({ ...formData, ThongTinChiTiet: e.target.value })}
               className="w-full px-4 py-3 bg-[#1a1a1a] border border-[#2e2e2e] rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none"
               rows={3}
               placeholder="CPU, RAM, SSD, thông số kỹ thuật..."

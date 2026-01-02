@@ -2,22 +2,30 @@ export interface DieuChuyen {
   MaDC: number
   SoPhieuDC: string
   NgayDC: Date
-  MaNV1: number  // Người giao
-  MaNV2: number  // Người nhận
   MaHang: number
+  TuKho?: number
+  DenKho?: number
+  NguoiGiao?: number  // Người giao (đang giữ)
+  NguoiNhan?: number  // Người nhận
+  SoLuong?: number
   DienGiai?: string
 }
 
 export interface CreateTransferDto {
   NgayDC: Date
-  MaNV1: number
-  MaNV2: number
   MaHang: number
+  TuKho?: number
+  DenKho?: number
+  NguoiGiao?: number
+  NguoiNhan?: number
+  SoLuong?: number
   DienGiai?: string
 }
 
 export interface TransferWithDetails extends DieuChuyen {
-  TenNV1?: string
-  TenNV2?: string
+  TenNVGiao?: string
+  TenNVNhan?: string
   TenHang?: string
+  TenKhoTu?: string
+  TenKhoDen?: string
 }

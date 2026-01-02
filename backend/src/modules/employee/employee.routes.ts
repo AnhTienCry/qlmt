@@ -43,7 +43,7 @@ function getRoleFromPhongBan(tenPB: string | null): string {
 router.get('/', async (req, res) => {
   try {
     const result = await db.query<any>(`
-      SELECT nv.MaNV as maNV, nv.TenNV as tenNV, nv.Email as email, 
+      SELECT nv.MaNV as maNV, nv.MaNVText as maNVText, nv.TenNV as tenNV, nv.Email as email, 
              nv.SoDienThoai as soDienThoai, nv.MaPB as maPB, pb.TenPB as tenPB,
              nv.NgayBDLV as ngayBDLV, nv.NgayTao as ngayTao
       FROM NhanVien nv
@@ -59,9 +59,18 @@ router.get('/', async (req, res) => {
 // Thêm nhân viên - tạo tài khoản với mật khẩu mặc định
 router.post('/', async (req, res) => {
   try {
-    const { tenNV, email, soDienThoai, maPB, ngayBDLV } = req.body
+    const { maNVText, tenNV, email, soDienThoai, maPB, ngayBDLV } = req.body
+    if (!maNVText) {
+      return res.status(400).json({ error: 'Mã nhân viên là bắt buộc' })
+    }
     if (!tenNV) {
       return res.status(400).json({ error: 'Tên nhân viên là bắt buộc' })
+    }
+    
+    // Kiểm tra mã nhân viên đã tồn tại chưa
+    const checkExists = await db.query<any>(`SELECT MaNV FROM NhanVien WHERE MaNVText = @maNVText`, { maNVText })
+    if (checkExists.recordset.length > 0) {
+      return res.status(400).json({ error: `Mã nhân viên "${maNVText}" đã tồn tại` })
     }
     
     // Lấy tên phòng ban nếu có maPB
@@ -73,12 +82,13 @@ router.post('/', async (req, res) => {
     
     // 1. Tạo nhân viên
     const result = await db.query<any>(`
-      INSERT INTO NhanVien (TenNV, Email, SoDienThoai, MaPB, NgayBDLV)
-      OUTPUT INSERTED.MaNV as maNV, INSERTED.TenNV as tenNV, 
+      INSERT INTO NhanVien (MaNVText, TenNV, Email, SoDienThoai, MaPB, NgayBDLV)
+      OUTPUT INSERTED.MaNV as maNV, INSERTED.MaNVText as maNVText, INSERTED.TenNV as tenNV, 
              INSERTED.Email as email, INSERTED.SoDienThoai as soDienThoai,
              INSERTED.NgayBDLV as ngayBDLV
-      VALUES (@tenNV, @email, @soDienThoai, @maPB, @ngayBDLV)
+      VALUES (@maNVText, @tenNV, @email, @soDienThoai, @maPB, @ngayBDLV)
     `, { 
+      maNVText,
       tenNV, 
       email: email || null, 
       soDienThoai: soDienThoai || null,
@@ -88,9 +98,8 @@ router.post('/', async (req, res) => {
     
     const newEmployee = result.recordset[0]
     
-    // 2. Tạo username theo ký tự phòng ban + MaNV
-    const prefix = getPhongBanPrefix(tenPB)
-    const username = `${prefix}${newEmployee.maNV}`
+    // 2. Tạo username = MaNVText (viết thường)
+    const username = maNVText.toLowerCase()
     const matKhauMacDinh = `${username}@123`
     const hashedPassword = await bcrypt.hash(matKhauMacDinh, 10)
     
@@ -128,22 +137,32 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params
-    const { tenNV, email, soDienThoai, maPB, ngayBDLV } = req.body
+    const { maNVText, tenNV, email, soDienThoai, maPB, ngayBDLV } = req.body
     
+    if (!maNVText) {
+      return res.status(400).json({ error: 'Mã nhân viên là bắt buộc' })
+    }
     if (!tenNV) {
       return res.status(400).json({ error: 'Tên nhân viên là bắt buộc' })
     }
     
+    // Kiểm tra mã nhân viên có bị trùng với NV khác không
+    const checkExists = await db.query<any>(`SELECT MaNV FROM NhanVien WHERE MaNVText = @maNVText AND MaNV != @id`, { maNVText, id: parseInt(id) })
+    if (checkExists.recordset.length > 0) {
+      return res.status(400).json({ error: `Mã nhân viên "${maNVText}" đã tồn tại` })
+    }
+    
     const result = await db.query<any>(`
       UPDATE NhanVien 
-      SET TenNV = @tenNV, Email = @email, SoDienThoai = @soDienThoai, 
+      SET MaNVText = @maNVText, TenNV = @tenNV, Email = @email, SoDienThoai = @soDienThoai, 
           MaPB = @maPB, NgayBDLV = @ngayBDLV, NgayCapNhat = SYSUTCDATETIME()
-      OUTPUT INSERTED.MaNV as maNV, INSERTED.TenNV as tenNV, 
+      OUTPUT INSERTED.MaNV as maNV, INSERTED.MaNVText as maNVText, INSERTED.TenNV as tenNV, 
              INSERTED.Email as email, INSERTED.SoDienThoai as soDienThoai,
              INSERTED.NgayBDLV as ngayBDLV
       WHERE MaNV = @id
     `, { 
       id: parseInt(id), 
+      maNVText,
       tenNV, 
       email: email || null, 
       soDienThoai: soDienThoai || null,
@@ -215,18 +234,29 @@ router.post('/:id/reset-password', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params
+    const maNV = parseInt(id)
     
-    // Kiểm tra nhân viên có đang sử dụng hàng hóa không
-    const checkHH = await db.query<any>(`SELECT COUNT(*) as count FROM HangHoa WHERE MaNV_DangDung = @id`, { id: parseInt(id) })
-    if (checkHH.recordset[0]?.count > 0) {
-      return res.status(400).json({ error: 'Không thể xóa nhân viên đang sử dụng hàng hóa' })
+    // Kiểm tra nhân viên có liên quan đến phiếu nhập/xuất/điều chuyển không
+    const checkNhap = await db.query<any>(`SELECT COUNT(*) as count FROM NhapHang WHERE NguoiNhan = @id`, { id: maNV })
+    if (checkNhap.recordset[0]?.count > 0) {
+      return res.status(400).json({ error: 'Không thể xóa nhân viên đang có phiếu nhập hàng' })
+    }
+    
+    const checkXuat = await db.query<any>(`SELECT COUNT(*) as count FROM XuatHang WHERE NguoiGiao = @id OR NguoiNhan = @id`, { id: maNV })
+    if (checkXuat.recordset[0]?.count > 0) {
+      return res.status(400).json({ error: 'Không thể xóa nhân viên đang có phiếu xuất hàng' })
+    }
+    
+    const checkDC = await db.query<any>(`SELECT COUNT(*) as count FROM DieuChuyen WHERE NguoiGiao = @id OR NguoiNhan = @id`, { id: maNV })
+    if (checkDC.recordset[0]?.count > 0) {
+      return res.status(400).json({ error: 'Không thể xóa nhân viên đang có phiếu điều chuyển' })
     }
     
     // Xóa tài khoản user trước (nếu có)
-    await db.query(`DELETE FROM Users WHERE MaNV = @id`, { id: parseInt(id) })
+    await db.query(`DELETE FROM Users WHERE MaNV = @id`, { id: maNV })
     
     // Xóa nhân viên
-    await db.query(`DELETE FROM NhanVien WHERE MaNV = @id`, { id: parseInt(id) })
+    await db.query(`DELETE FROM NhanVien WHERE MaNV = @id`, { id: maNV })
     res.json({ success: true, message: 'Đã xóa nhân viên và tài khoản liên quan' })
   } catch (error: any) {
     res.status(500).json({ error: error.message })

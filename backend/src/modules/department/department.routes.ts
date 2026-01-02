@@ -10,7 +10,8 @@ router.use(authMiddleware)
 router.get('/', async (req, res) => {
   try {
     const result = await db.query<any>(`
-      SELECT MaPB as maPB, TenPB as tenPB, MoTa as moTa, NgayTao as ngayTao
+      SELECT MaPB as maPB, ISNULL(MaPBText, CAST(MaPB AS NVARCHAR)) as maPBText, 
+             TenPB as tenPB, MoTa as moTa, NgayTao as ngayTao
       FROM PhongBan ORDER BY TenPB
     `)
     res.json({ success: true, data: result.recordset })
@@ -22,16 +23,25 @@ router.get('/', async (req, res) => {
 // Thêm phòng ban
 router.post('/', async (req, res) => {
   try {
-    const { tenPB, moTa } = req.body
+    const { maPBText, tenPB, moTa } = req.body
+    if (!maPBText) {
+      return res.status(400).json({ error: 'Mã phòng ban là bắt buộc' })
+    }
     if (!tenPB) {
       return res.status(400).json({ error: 'Tên phòng ban là bắt buộc' })
     }
     
+    // Kiểm tra mã đã tồn tại
+    const checkExist = await db.query<any>(`SELECT MaPB FROM PhongBan WHERE MaPBText = @maPBText`, { maPBText })
+    if (checkExist.recordset.length > 0) {
+      return res.status(400).json({ error: 'Mã phòng ban đã tồn tại' })
+    }
+    
     const result = await db.query<any>(`
-      INSERT INTO PhongBan (TenPB, MoTa)
-      OUTPUT INSERTED.MaPB as maPB, INSERTED.TenPB as tenPB, INSERTED.MoTa as moTa
-      VALUES (@tenPB, @moTa)
-    `, { tenPB, moTa: moTa || null })
+      INSERT INTO PhongBan (MaPBText, TenPB, MoTa)
+      OUTPUT INSERTED.MaPB as maPB, INSERTED.MaPBText as maPBText, INSERTED.TenPB as tenPB, INSERTED.MoTa as moTa
+      VALUES (@maPBText, @tenPB, @moTa)
+    `, { maPBText, tenPB, moTa: moTa || null })
     
     res.json({ success: true, data: result.recordset[0] })
   } catch (error: any) {
@@ -43,17 +53,26 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params
-    const { tenPB, moTa } = req.body
+    const { maPBText, tenPB, moTa } = req.body
     
+    if (!maPBText) {
+      return res.status(400).json({ error: 'Mã phòng ban là bắt buộc' })
+    }
     if (!tenPB) {
       return res.status(400).json({ error: 'Tên phòng ban là bắt buộc' })
     }
     
+    // Kiểm tra mã đã tồn tại ở phòng ban khác
+    const checkExist = await db.query<any>(`SELECT MaPB FROM PhongBan WHERE MaPBText = @maPBText AND MaPB != @id`, { maPBText, id: parseInt(id) })
+    if (checkExist.recordset.length > 0) {
+      return res.status(400).json({ error: 'Mã phòng ban đã tồn tại' })
+    }
+    
     const result = await db.query<any>(`
-      UPDATE PhongBan SET TenPB = @tenPB, MoTa = @moTa, NgayCapNhat = SYSUTCDATETIME()
-      OUTPUT INSERTED.MaPB as maPB, INSERTED.TenPB as tenPB, INSERTED.MoTa as moTa
+      UPDATE PhongBan SET MaPBText = @maPBText, TenPB = @tenPB, MoTa = @moTa, NgayCapNhat = SYSUTCDATETIME()
+      OUTPUT INSERTED.MaPB as maPB, INSERTED.MaPBText as maPBText, INSERTED.TenPB as tenPB, INSERTED.MoTa as moTa
       WHERE MaPB = @id
-    `, { id: parseInt(id), tenPB, moTa: moTa || null })
+    `, { id: parseInt(id), maPBText, tenPB, moTa: moTa || null })
     
     if (result.recordset.length === 0) {
       return res.status(404).json({ error: 'Không tìm thấy phòng ban' })

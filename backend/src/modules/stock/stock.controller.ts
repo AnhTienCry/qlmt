@@ -62,6 +62,19 @@ class StockController {
     }
   }
 
+  async updateNhapHang(req: Request, res: Response) {
+    try {
+      const id = parseInt(req.params.id)
+      const result = await stockService.updateNhapHang(id, req.body)
+      if (!result) {
+        return res.status(404).json({ success: false, message: 'Không tìm thấy' })
+      }
+      res.json({ success: true, message: 'Cập nhật thành công', data: result })
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message })
+    }
+  }
+
   // ==================== XUẤT HÀNG ====================
 
   async getSoPhieuXuat(req: Request, res: Response) {
@@ -122,6 +135,19 @@ class StockController {
     }
   }
 
+  async updateXuatHang(req: Request, res: Response) {
+    try {
+      const id = parseInt(req.params.id)
+      const result = await stockService.updateXuatHang(id, req.body)
+      if (!result) {
+        return res.status(404).json({ success: false, message: 'Không tìm thấy' })
+      }
+      res.json({ success: true, message: 'Cập nhật thành công', data: result })
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message })
+    }
+  }
+
   // ==================== BÁO CÁO NHẬP XUẤT TỒN ====================
 
   async getBaoCaoNhapXuatTon(req: Request, res: Response) {
@@ -137,6 +163,33 @@ class StockController {
         tuNgay: tuNgay || new Date().toISOString().slice(0, 7) + '-01',
         denNgay: denNgay || new Date().toISOString().split('T')[0]
       })
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message })
+    }
+  }
+
+  // ==================== TỒN KHO ====================
+
+  async getTonKho(req: Request, res: Response) {
+    try {
+      const maHang = parseInt(req.params.maHang)
+      const maKho = parseInt(req.params.maKho)
+      
+      if (!maHang || !maKho) {
+        return res.status(400).json({ success: false, message: 'Thiếu mã hàng hoặc mã kho' })
+      }
+
+      const data = await stockService.getTonKho(maHang, maKho)
+      res.json({ success: true, data })
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message })
+    }
+  }
+
+  async getHangDaXuat(req: Request, res: Response) {
+    try {
+      const data = await stockService.getHangDaXuat()
+      res.json({ success: true, data })
     } catch (error: any) {
       res.status(500).json({ success: false, message: error.message })
     }

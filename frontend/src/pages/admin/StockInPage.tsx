@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import axios from '@/libs/axios'
-import { Button, Card, Badge, Modal, Select, Table, PageHeader, SearchInput } from '@/components/ui'
+import { Button, Card, Badge, Modal, Table, PageHeader, SearchInput, SelectWithAdd, AddHangHoaModal, AddKhoModal, AddNCCModal, AddNhanVienModal } from '@/components/ui'
 import { Download } from 'lucide-react'
 import { exportStockIn } from '@/libs/excel'
 
@@ -15,12 +15,12 @@ interface NhapHang {
   NguoiGiao: number
   TenNCC?: string
   NguoiNhan: number
-  TenNV?: string
+  TenNguoiNhan?: string
   DienGiai?: string
 }
 
 interface HangHoa { MaHang: number; TenHang: string }
-interface Kho { MaKho: number; TenKho: string }
+interface Kho { maKho: number; tenKho: string }
 interface NCC { MaNCC: number; TenNCC: string }
 interface NhanVien { maNV: number; tenNV: string }
 
@@ -28,6 +28,7 @@ const StockInPage = () => {
   const [items, setItems] = useState<NhapHang[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
+  const [editingId, setEditingId] = useState<number | null>(null)
   const [searchKeyword, setSearchKeyword] = useState('')
   const [saving, setSaving] = useState(false)
   
@@ -36,6 +37,12 @@ const StockInPage = () => {
   const [nccs, setNccs] = useState<NCC[]>([])
   const [nhanViens, setNhanViens] = useState<NhanVien[]>([])
   const [soPhieuMoi, setSoPhieuMoi] = useState('')
+
+  // State cho các modal thêm mới
+  const [showAddHangHoa, setShowAddHangHoa] = useState(false)
+  const [showAddKho, setShowAddKho] = useState(false)
+  const [showAddNCC, setShowAddNCC] = useState(false)
+  const [showAddNhanVien, setShowAddNhanVien] = useState(false)
 
   const [formData, setFormData] = useState({
     NgayNhap: new Date().toISOString().split('T')[0],
@@ -81,6 +88,7 @@ const StockInPage = () => {
     } catch {
       setSoPhieuMoi('')
     }
+    setEditingId(null)
     setFormData({
       NgayNhap: new Date().toISOString().split('T')[0],
       MaHang: '',
@@ -92,22 +100,42 @@ const StockInPage = () => {
     setShowModal(true)
   }
 
+  const handleEdit = (item: NhapHang) => {
+    setEditingId(item.MaNhap)
+    setSoPhieuMoi(item.SoPhieuN)
+    setFormData({
+      NgayNhap: item.NgayNhap ? item.NgayNhap.split('T')[0] : new Date().toISOString().split('T')[0],
+      MaHang: item.MaHang?.toString() || '',
+      MaKho: item.MaKho?.toString() || '',
+      NguoiGiao: item.NguoiGiao?.toString() || '',
+      NguoiNhan: item.NguoiNhan?.toString() || '',
+      DienGiai: item.DienGiai || ''
+    })
+    setShowModal(true)
+  }
+
   const handleSave = async () => {
     try {
-      if (!formData.MaHang || !formData.MaKho || !formData.NguoiGiao || !formData.NguoiNhan) {
-        alert('Vui lòng điền đầy đủ thông tin')
+      if (!formData.MaHang || !formData.MaKho) {
+        alert('Vui lòng chọn hàng hóa và kho')
         return
       }
 
       setSaving(true)
-      await axios.post('/stock/nhaphang', {
+      const payload = {
         NgayNhap: formData.NgayNhap,
         MaHang: parseInt(formData.MaHang),
         MaKho: parseInt(formData.MaKho),
-        NguoiGiao: parseInt(formData.NguoiGiao),
-        NguoiNhan: parseInt(formData.NguoiNhan),
+        NguoiGiao: formData.NguoiGiao ? parseInt(formData.NguoiGiao) : null,
+        NguoiNhan: formData.NguoiNhan ? parseInt(formData.NguoiNhan) : null,
         DienGiai: formData.DienGiai || null
-      })
+      }
+
+      if (editingId) {
+        await axios.put(`/stock/nhaphang/${editingId}`, payload)
+      } else {
+        await axios.post('/stock/nhaphang', payload)
+      }
       
       setShowModal(false)
       fetchData()
@@ -126,6 +154,27 @@ const StockInPage = () => {
     } catch (error: any) {
       alert(error.response?.data?.message || 'Có lỗi xảy ra')
     }
+  }
+
+  // Callback khi tạo mới thành công từ Modal
+  const onHangHoaCreated = (newItem: any) => {
+    setHangHoas(prev => [...prev, newItem])
+    setFormData(prev => ({ ...prev, MaHang: String(newItem.MaHang) }))
+  }
+
+  const onKhoCreated = (newItem: any) => {
+    setKhos(prev => [...prev, newItem])
+    setFormData(prev => ({ ...prev, MaKho: String(newItem.maKho) }))
+  }
+
+  const onNCCCreated = (newItem: any) => {
+    setNccs(prev => [...prev, newItem])
+    setFormData(prev => ({ ...prev, NguoiGiao: String(newItem.MaNCC) }))
+  }
+
+  const onNhanVienCreated = (newItem: any) => {
+    setNhanViens(prev => [...prev, newItem])
+    setFormData(prev => ({ ...prev, NguoiNhan: String(newItem.maNV) }))
   }
 
   const formatDate = (dateStr: string) => {
@@ -168,14 +217,14 @@ const StockInPage = () => {
       )
     },
     { 
-      key: 'TenNV', 
+      key: 'TenNguoiNhan', 
       header: 'Người nhận (NV)',
       render: (item: NhapHang) => (
         <div className="flex items-center">
           <svg className="w-4 h-4 mr-2 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
           </svg>
-          <span className="text-gray-300">{item.TenNV}</span>
+          <span className="text-gray-300">{item.TenNguoiNhan || '-'}</span>
         </div>
       )
     },
@@ -185,15 +234,26 @@ const StockInPage = () => {
       headerClassName: 'text-right',
       className: 'text-right',
       render: (item: NhapHang) => (
-        <button
-          onClick={(e) => { e.stopPropagation(); handleDelete(item) }}
-          className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-          title="Xóa"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-          </svg>
-        </button>
+        <div className="flex items-center justify-end gap-1">
+          <button
+            onClick={(e) => { e.stopPropagation(); handleEdit(item) }}
+            className="p-2 text-gray-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors"
+            title="Sửa"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); handleDelete(item) }}
+            className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+            title="Xóa"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
+        </div>
       )
     }
   ]
@@ -268,12 +328,12 @@ const StockInPage = () => {
       <Modal
         isOpen={showModal}
         onClose={() => setShowModal(false)}
-        title="Tạo phiếu nhập hàng"
+        title={editingId ? "Sửa phiếu nhập hàng" : "Tạo phiếu nhập hàng"}
         size="lg"
         footer={
           <>
             <Button variant="secondary" onClick={() => setShowModal(false)}>Hủy</Button>
-            <Button onClick={handleSave} loading={saving}>Lưu phiếu</Button>
+            <Button onClick={handleSave} loading={saving}>{editingId ? 'Cập nhật' : 'Lưu phiếu'}</Button>
           </>
         }
       >
@@ -297,36 +357,44 @@ const StockInPage = () => {
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <Select
+            <SelectWithAdd
               label="Hàng hóa *"
               options={hangHoas.map(h => ({ value: h.MaHang, label: h.TenHang }))}
               value={formData.MaHang}
               onChange={(v) => setFormData({ ...formData, MaHang: v })}
-              placeholder="-- Chọn hàng hóa --"
+              placeholder="Chọn hàng hóa..."
+              onAddClick={() => setShowAddHangHoa(true)}
+              addTitle="Thêm hàng hóa mới"
             />
-            <Select
+            <SelectWithAdd
               label="Kho hàng *"
-              options={khos.map(k => ({ value: k.MaKho, label: k.TenKho }))}
+              options={khos.map(k => ({ value: k.maKho, label: k.tenKho }))}
               value={formData.MaKho}
               onChange={(v) => setFormData({ ...formData, MaKho: v })}
-              placeholder="-- Chọn kho --"
+              placeholder="Chọn kho..."
+              onAddClick={() => setShowAddKho(true)}
+              addTitle="Thêm kho mới"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <Select
-              label="Người giao (NCC) *"
-              options={nccs.map(n => ({ value: n.MaNCC, label: `${n.MaNCC} - ${n.TenNCC}` }))}
+            <SelectWithAdd
+              label="Người giao (NCC)"
+              options={nccs.map(n => ({ value: n.MaNCC, label: n.TenNCC }))}
               value={formData.NguoiGiao}
               onChange={(v) => setFormData({ ...formData, NguoiGiao: v })}
-              placeholder="-- Chọn NCC --"
+              placeholder="Chọn NCC..."
+              onAddClick={() => setShowAddNCC(true)}
+              addTitle="Thêm nhà cung cấp mới"
             />
-            <Select
-              label="Người nhận (NV) *"
-              options={nhanViens.map(nv => ({ value: nv.maNV, label: `${nv.maNV} - ${nv.tenNV}` }))}
+            <SelectWithAdd
+              label="Người nhận (NV)"
+              options={nhanViens.map(nv => ({ value: nv.maNV, label: nv.tenNV }))}
               value={formData.NguoiNhan}
               onChange={(v) => setFormData({ ...formData, NguoiNhan: v })}
-              placeholder="-- Chọn NV --"
+              placeholder="Chọn nhân viên..."
+              onAddClick={() => setShowAddNhanVien(true)}
+              addTitle="Thêm nhân viên mới"
             />
           </div>
 
@@ -342,6 +410,28 @@ const StockInPage = () => {
           </div>
         </div>
       </Modal>
+
+      {/* Các Modal thêm mới */}
+      <AddHangHoaModal 
+        isOpen={showAddHangHoa} 
+        onClose={() => setShowAddHangHoa(false)} 
+        onSuccess={onHangHoaCreated} 
+      />
+      <AddKhoModal 
+        isOpen={showAddKho} 
+        onClose={() => setShowAddKho(false)} 
+        onSuccess={onKhoCreated} 
+      />
+      <AddNCCModal 
+        isOpen={showAddNCC} 
+        onClose={() => setShowAddNCC(false)} 
+        onSuccess={onNCCCreated} 
+      />
+      <AddNhanVienModal 
+        isOpen={showAddNhanVien} 
+        onClose={() => setShowAddNhanVien(false)} 
+        onSuccess={onNhanVienCreated} 
+      />
     </div>
   )
 }

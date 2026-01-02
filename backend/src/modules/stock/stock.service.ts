@@ -35,10 +35,14 @@ class StockService {
     let query = `
       SELECT nh.*, 
              hh.TenHang,
-             kh.TenKho
+             kh.TenKho,
+             ncc.TenNCC,
+             nv.TenNV as TenNguoiNhan
       FROM NhapHang nh
       LEFT JOIN HangHoa hh ON nh.MaHang = hh.MaHang
       LEFT JOIN Kho kh ON nh.MaKho = kh.MaKho
+      LEFT JOIN NCC ncc ON nh.NguoiGiao = ncc.MaNCC
+      LEFT JOIN NhanVien nv ON nh.NguoiNhan = nv.MaNV
     `
 
     const params: Record<string, unknown> = {}
@@ -46,8 +50,8 @@ class StockService {
     if (search) {
       query += ` WHERE nh.SoPhieuN LIKE @search 
                  OR hh.TenHang LIKE @search 
-                 OR nh.NguoiGiao LIKE @search
-                 OR nh.NguoiNhan LIKE @search`
+                 OR ncc.TenNCC LIKE @search
+                 OR nv.TenNV LIKE @search`
       params.search = `%${search}%`
     }
 
@@ -61,10 +65,14 @@ class StockService {
     const result = await db.query<NhapHangWithDetails>(`
       SELECT nh.*, 
              hh.TenHang,
-             kh.TenKho
+             kh.TenKho,
+             ncc.TenNCC,
+             nv.TenNV as TenNguoiNhan
       FROM NhapHang nh
       LEFT JOIN HangHoa hh ON nh.MaHang = hh.MaHang
       LEFT JOIN Kho kh ON nh.MaKho = kh.MaKho
+      LEFT JOIN NCC ncc ON nh.NguoiGiao = ncc.MaNCC
+      LEFT JOIN NhanVien nv ON nh.NguoiNhan = nv.MaNV
       WHERE nh.MaNhap = @id
     `, { id })
     return result.recordset[0] || null
@@ -100,6 +108,32 @@ class StockService {
     return result.rowsAffected[0] > 0
   }
 
+  async updateNhapHang(id: number, data: Partial<CreateNhapHangDto>): Promise<NhapHangWithDetails | null> {
+    await db.query(`
+      UPDATE NhapHang SET 
+        NgayNhap = @NgayNhap,
+        MaHang = @MaHang,
+        MaKho = @MaKho,
+        NguoiGiao = @NguoiGiao,
+        NguoiNhan = @NguoiNhan,
+        SoLuong = @SoLuong,
+        DonGia = @DonGia,
+        DienGiai = @DienGiai
+      WHERE MaNhap = @id
+    `, {
+      id,
+      NgayNhap: data.NgayNhap,
+      MaHang: data.MaHang,
+      MaKho: data.MaKho,
+      NguoiGiao: data.NguoiGiao || null,
+      NguoiNhan: data.NguoiNhan || null,
+      SoLuong: data.SoLuong || 1,
+      DonGia: data.DonGia || null,
+      DienGiai: data.DienGiai || null
+    })
+    return this.getNhapHangById(id)
+  }
+
   // ==================== XUẤT HÀNG ====================
 
   // Tạo số phiếu xuất: PX202601-001
@@ -130,10 +164,14 @@ class StockService {
     let query = `
       SELECT xh.*, 
              hh.TenHang,
-             kh.TenKho
+             kh.TenKho,
+             nvGiao.TenNV as TenNguoiGiao,
+             nvNhan.TenNV as TenNguoiNhan
       FROM XuatHang xh
       LEFT JOIN HangHoa hh ON xh.MaHang = hh.MaHang
       LEFT JOIN Kho kh ON xh.MaKho = kh.MaKho
+      LEFT JOIN NhanVien nvGiao ON xh.NguoiGiao = nvGiao.MaNV
+      LEFT JOIN NhanVien nvNhan ON xh.NguoiNhan = nvNhan.MaNV
     `
 
     const params: Record<string, unknown> = {}
@@ -141,8 +179,8 @@ class StockService {
     if (search) {
       query += ` WHERE xh.SoPhieuX LIKE @search 
                  OR hh.TenHang LIKE @search 
-                 OR xh.NguoiGiao LIKE @search
-                 OR xh.NguoiNhan LIKE @search`
+                 OR nvGiao.TenNV LIKE @search
+                 OR nvNhan.TenNV LIKE @search`
       params.search = `%${search}%`
     }
 
@@ -156,10 +194,14 @@ class StockService {
     const result = await db.query<XuatHangWithDetails>(`
       SELECT xh.*, 
              hh.TenHang,
-             kh.TenKho
+             kh.TenKho,
+             nvGiao.TenNV as TenNguoiGiao,
+             nvNhan.TenNV as TenNguoiNhan
       FROM XuatHang xh
       LEFT JOIN HangHoa hh ON xh.MaHang = hh.MaHang
       LEFT JOIN Kho kh ON xh.MaKho = kh.MaKho
+      LEFT JOIN NhanVien nvGiao ON xh.NguoiGiao = nvGiao.MaNV
+      LEFT JOIN NhanVien nvNhan ON xh.NguoiNhan = nvNhan.MaNV
       WHERE xh.MaXuat = @id
     `, { id })
     return result.recordset[0] || null
@@ -192,6 +234,30 @@ class StockService {
   async deleteXuatHang(id: number): Promise<boolean> {
     const result = await db.query('DELETE FROM XuatHang WHERE MaXuat = @id', { id })
     return result.rowsAffected[0] > 0
+  }
+
+  async updateXuatHang(id: number, data: Partial<CreateXuatHangDto>): Promise<XuatHangWithDetails | null> {
+    await db.query(`
+      UPDATE XuatHang SET 
+        NgayXuat = @NgayXuat,
+        MaHang = @MaHang,
+        MaKho = @MaKho,
+        NguoiGiao = @NguoiGiao,
+        NguoiNhan = @NguoiNhan,
+        SoLuong = @SoLuong,
+        DienGiai = @DienGiai
+      WHERE MaXuat = @id
+    `, {
+      id,
+      NgayXuat: data.NgayXuat,
+      MaHang: data.MaHang,
+      MaKho: data.MaKho,
+      NguoiGiao: data.NguoiGiao || null,
+      NguoiNhan: data.NguoiNhan || null,
+      SoLuong: data.SoLuong || 1,
+      DienGiai: data.DienGiai || null
+    })
+    return this.getXuatHangById(id)
   }
 
   // ==================== BÁO CÁO NHẬP XUẤT TỒN ====================
@@ -248,6 +314,56 @@ class StockService {
       denNgay: defaultDenNgay 
     })
     
+    return result.recordset
+  }
+
+  // ==================== TỒN KHO ====================
+  
+  /**
+   * Kiểm tra tồn kho của một mặt hàng trong một kho cụ thể
+   * Tồn = Tổng nhập - Tổng xuất (cùng MaHang + MaKho)
+   */
+  async getTonKho(maHang: number, maKho: number): Promise<{ ton: number; tenHang: string; tenKho: string }> {
+    const result = await db.query<any>(`
+      SELECT 
+        hh.TenHang,
+        kh.TenKho,
+        ISNULL((SELECT SUM(SoLuong) FROM NhapHang WHERE MaHang = @maHang AND MaKho = @maKho), 0) as SoNhap,
+        ISNULL((SELECT SUM(SoLuong) FROM XuatHang WHERE MaHang = @maHang AND MaKho = @maKho), 0) as SoXuat
+      FROM HangHoa hh
+      CROSS JOIN Kho kh
+      WHERE hh.MaHang = @maHang AND kh.MaKho = @maKho
+    `, { maHang, maKho })
+
+    if (result.recordset.length === 0) {
+      return { ton: 0, tenHang: '', tenKho: '' }
+    }
+
+    const data = result.recordset[0]
+    return {
+      ton: data.SoNhap - data.SoXuat,
+      tenHang: data.TenHang,
+      tenKho: data.TenKho
+    }
+  }
+
+  /**
+   * Lấy danh sách hàng hóa đã xuất (để dùng cho Điều chuyển)
+   * Chỉ lấy những hàng đã xuất và đang được ai đó giữ
+   */
+  async getHangDaXuat(): Promise<any[]> {
+    const result = await db.query<any>(`
+      SELECT DISTINCT
+        xh.MaHang,
+        hh.TenHang,
+        xh.NguoiNhan as MaNV_DangDung,
+        nv.TenNV as TenNV_DangDung
+      FROM XuatHang xh
+      INNER JOIN HangHoa hh ON xh.MaHang = hh.MaHang
+      LEFT JOIN NhanVien nv ON xh.NguoiNhan = nv.MaNV
+      WHERE xh.NguoiNhan IS NOT NULL
+      ORDER BY hh.TenHang
+    `)
     return result.recordset
   }
 }

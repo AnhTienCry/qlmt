@@ -22,7 +22,7 @@ export interface ProposalRecord {
   MoTa: string | null
   LyDo: string | null
   MucDoUuTien: PriorityLevel
-  MaMT: number | null
+  MaHang: number | null
   MaNV_NguoiTao: number | null
   UserId_NguoiTao: number
   TrangThai: ProposalStatus
@@ -46,8 +46,8 @@ export interface ProposalResponse {
   moTa: string | null
   lyDo: string | null
   mucDoUuTien: PriorityLevel
-  maMT: number | null
-  tenMayTinh: string | null
+  maHang: number | null
+  tenHangHoa: string | null
   nguoiTao: {
     userId: number
     tenNV: string | null
@@ -79,7 +79,7 @@ export interface CreateProposalRequest {
   moTa?: string
   lyDo?: string
   mucDoUuTien?: PriorityLevel
-  maMT?: number  // Máy tính liên quan (nếu có)
+  maHang?: number  // Hàng hóa liên quan (nếu có)
 }
 
 // Request: IT xử lý

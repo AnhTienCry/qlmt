@@ -5,6 +5,7 @@ import { exportEmployees } from '@/libs/excel'
 
 interface Employee {
   maNV: number
+  maNVText: string
   tenNV: string
   email: string
   soDienThoai: string
@@ -27,6 +28,7 @@ const EmployeesPage = () => {
   const [editingId, setEditingId] = useState<number | null>(null)
   
   // Form state
+  const [maNVText, setMaNVText] = useState('')
   const [tenNV, setTenNV] = useState('')
   const [email, setEmail] = useState('')
   const [soDienThoai, setSoDienThoai] = useState('')
@@ -56,6 +58,10 @@ const EmployeesPage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!maNVText.trim()) {
+      alert('Vui lòng nhập mã nhân viên')
+      return
+    }
     if (!tenNV.trim()) {
       alert('Vui lòng nhập tên nhân viên')
       return
@@ -63,7 +69,7 @@ const EmployeesPage = () => {
     
     try {
       setSubmitting(true)
-      const data = { tenNV, email, soDienThoai, maPB: maPB || null, ngayBDLV: ngayBDLV || null }
+      const data = { maNVText, tenNV, email, soDienThoai, maPB: maPB || null, ngayBDLV: ngayBDLV || null }
       
       if (editingId) {
         await api.put(`/employees/${editingId}`, data)
@@ -71,7 +77,7 @@ const EmployeesPage = () => {
         // Tạo mới nhân viên với mật khẩu mặc định
         const result = await api.post('/employees', data)
         if (result.data?.data?.matKhauMacDinh) {
-          alert(`Tạo nhân viên thành công!\n\nMật khẩu mặc định: ${result.data.data.matKhauMacDinh}\n\nNhân viên có thể đổi mật khẩu sau khi đăng nhập.`)
+          alert(`Tạo nhân viên thành công!\n\nTài khoản: ${result.data.data.username}\nMật khẩu mặc định: ${result.data.data.matKhauMacDinh}\n\nNhân viên có thể đổi mật khẩu sau khi đăng nhập.`)
         }
       }
       setShowModal(false)
@@ -86,6 +92,7 @@ const EmployeesPage = () => {
 
   const handleEdit = (item: Employee) => {
     setEditingId(item.maNV)
+    setMaNVText(item.maNVText || '')
     setTenNV(item.tenNV || '')
     setEmail(item.email || '')
     setSoDienThoai(item.soDienThoai || '')
@@ -94,44 +101,11 @@ const EmployeesPage = () => {
     setShowModal(true)
   }
 
-  // Hàm lấy prefix từ tên phòng ban
-  const getPhongBanPrefix = (tenPB: string | null): string => {
-    if (!tenPB) return 'nv'
-    
-    const ten = tenPB.toLowerCase()
-    
-    if (ten.includes('giám đốc') || ten.includes('giam doc') || ten.includes('director') || ten.includes('lãnh đạo')) return 'gd'
-    if (ten.includes('it') || ten.includes('công nghệ') || ten.includes('cong nghe') || ten.includes('kỹ thuật')) return 'it'
-    if (ten.includes('kế toán') || ten.includes('ke toan') || ten.includes('tài chính')) return 'kt'
-    if (ten.includes('nhân sự') || ten.includes('nhan su') || ten.includes('hr')) return 'ns'
-    if (ten.includes('kinh doanh') || ten.includes('sales') || ten.includes('bán hàng')) return 'kd'
-    if (ten.includes('marketing') || ten.includes('truyền thông')) return 'mk'
-    if (ten.includes('hành chính') || ten.includes('hanh chinh')) return 'hc'
-    if (ten.includes('sản xuất') || ten.includes('san xuat')) return 'sx'
-    if (ten.includes('kho') || ten.includes('vật tư')) return 'kho'
-    
-    return 'nv'
-  }
-
-  // Hàm lấy role từ phòng ban
-  const getRoleFromPhongBan = (tenPB: string | null): string => {
-    if (!tenPB) return 'user'
-    
-    const ten = tenPB.toLowerCase()
-    
-    if (ten.includes('giám đốc') || ten.includes('giam doc') || ten.includes('director') || ten.includes('lãnh đạo')) return 'director'
-    if (ten.includes('it') || ten.includes('công nghệ') || ten.includes('cong nghe') || ten.includes('kỹ thuật')) return 'it'
-    
-    return 'user'
-  }
-
   const handleResetPassword = async (item: Employee) => {
-    const prefix = getPhongBanPrefix(item.tenPB)
-    const username = `${prefix}${item.maNV}`
+    const username = item.maNVText?.toLowerCase() || `nv${item.maNV}`
     const matKhauMacDinh = `${username}@123`
-    const role = getRoleFromPhongBan(item.tenPB)
     
-    alert(`📋 THÔNG TIN TÀI KHOẢN\n\nNhân viên: ${item.tenNV}\nPhòng ban: ${item.tenPB || 'Chưa có'}\nTài khoản: ${username}\nMật khẩu mặc định: ${matKhauMacDinh}\nRole: ${role}\n\n(Nhân viên có thể đổi mật khẩu sau khi đăng nhập)`)
+    alert(`📋 THÔNG TIN TÀI KHOẢN\n\nNhân viên: ${item.tenNV}\nMã NV: ${item.maNVText}\nPhòng ban: ${item.tenPB || 'Chưa có'}\nTài khoản: ${username}\nMật khẩu mặc định: ${matKhauMacDinh}\n\n(Nhân viên có thể đổi mật khẩu sau khi đăng nhập)`)
   }
 
   const handleDelete = async (id: number) => {
@@ -147,6 +121,7 @@ const EmployeesPage = () => {
 
   const resetForm = () => {
     setEditingId(null)
+    setMaNVText('')
     setTenNV('')
     setEmail('')
     setSoDienThoai('')
@@ -222,7 +197,7 @@ const EmployeesPage = () => {
               ) : (
                 employees.map((item) => (
                   <tr key={item.maNV} className="hover:bg-[#252525] transition">
-                    <td className="px-4 py-3 text-sm text-gray-300">#{item.maNV}</td>
+                    <td className="px-4 py-3 text-sm text-gray-300 font-mono">{item.maNVText || `#${item.maNV}`}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-medium">
@@ -291,6 +266,19 @@ const EmployeesPage = () => {
               {editingId ? 'Sửa nhân viên' : 'Thêm nhân viên mới'}
             </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Mã nhân viên *</label>
+                <input
+                  type="text"
+                  value={maNVText}
+                  onChange={(e) => setMaNVText(e.target.value.toUpperCase())}
+                  className="w-full px-3 py-2 bg-[#0f0f0f] border border-[#2e2e2e] rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 font-mono"
+                  placeholder="VD: NV001, IT001..."
+                />
+                {!editingId && (
+                  <p className="text-xs text-gray-500 mt-1">Mã nhân viên cũng là tên tài khoản đăng nhập</p>
+                )}
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-400 mb-1">Họ tên *</label>
                 <input

@@ -29,21 +29,25 @@ class TransferService {
   async getAll(search?: string): Promise<TransferWithDetails[]> {
     let query = `
       SELECT dc.*, 
-             nv1.TenNV as TenNV1, 
-             nv2.TenNV as TenNV2,
-             hh.TenHang
+             nvGiao.TenNV as TenNVGiao, 
+             nvNhan.TenNV as TenNVNhan,
+             hh.TenHang,
+             khoTu.TenKho as TenKhoTu,
+             khoDen.TenKho as TenKhoDen
       FROM DieuChuyen dc
-      LEFT JOIN NhanVien nv1 ON dc.MaNV1 = nv1.MaNV
-      LEFT JOIN NhanVien nv2 ON dc.MaNV2 = nv2.MaNV
+      LEFT JOIN NhanVien nvGiao ON dc.NguoiGiao = nvGiao.MaNV
+      LEFT JOIN NhanVien nvNhan ON dc.NguoiNhan = nvNhan.MaNV
       LEFT JOIN HangHoa hh ON dc.MaHang = hh.MaHang
+      LEFT JOIN Kho khoTu ON dc.TuKho = khoTu.MaKho
+      LEFT JOIN Kho khoDen ON dc.DenKho = khoDen.MaKho
     `
 
     const params: Record<string, unknown> = {}
 
     if (search) {
       query += ` WHERE dc.SoPhieuDC LIKE @search 
-                 OR nv1.TenNV LIKE @search 
-                 OR nv2.TenNV LIKE @search
+                 OR nvGiao.TenNV LIKE @search 
+                 OR nvNhan.TenNV LIKE @search
                  OR hh.TenHang LIKE @search`
       params.search = `%${search}%`
     }
@@ -57,13 +61,17 @@ class TransferService {
   async getById(id: number): Promise<TransferWithDetails | null> {
     const result = await db.query<TransferWithDetails>(`
       SELECT dc.*, 
-             nv1.TenNV as TenNV1, 
-             nv2.TenNV as TenNV2,
-             hh.TenHang
+             nvGiao.TenNV as TenNVGiao, 
+             nvNhan.TenNV as TenNVNhan,
+             hh.TenHang,
+             khoTu.TenKho as TenKhoTu,
+             khoDen.TenKho as TenKhoDen
       FROM DieuChuyen dc
-      LEFT JOIN NhanVien nv1 ON dc.MaNV1 = nv1.MaNV
-      LEFT JOIN NhanVien nv2 ON dc.MaNV2 = nv2.MaNV
+      LEFT JOIN NhanVien nvGiao ON dc.NguoiGiao = nvGiao.MaNV
+      LEFT JOIN NhanVien nvNhan ON dc.NguoiNhan = nvNhan.MaNV
       LEFT JOIN HangHoa hh ON dc.MaHang = hh.MaHang
+      LEFT JOIN Kho khoTu ON dc.TuKho = khoTu.MaKho
+      LEFT JOIN Kho khoDen ON dc.DenKho = khoDen.MaKho
       WHERE dc.MaDC = @id
     `, { id })
     return result.recordset[0] || null
@@ -73,22 +81,19 @@ class TransferService {
     const soPhieu = await this.generateSoPhieu()
 
     const result = await db.query<{ MaDC: number }>(`
-      INSERT INTO DieuChuyen (SoPhieuDC, NgayDC, MaNV1, MaNV2, MaHang, DienGiai)
+      INSERT INTO DieuChuyen (SoPhieuDC, NgayDC, MaHang, TuKho, DenKho, NguoiGiao, NguoiNhan, SoLuong, DienGiai)
       OUTPUT INSERTED.MaDC
-      VALUES (@SoPhieuDC, @NgayDC, @MaNV1, @MaNV2, @MaHang, @DienGiai)
+      VALUES (@SoPhieuDC, @NgayDC, @MaHang, @TuKho, @DenKho, @NguoiGiao, @NguoiNhan, @SoLuong, @DienGiai)
     `, {
       SoPhieuDC: soPhieu,
       NgayDC: data.NgayDC,
-      MaNV1: data.MaNV1,
-      MaNV2: data.MaNV2,
       MaHang: data.MaHang,
+      TuKho: data.TuKho || null,
+      DenKho: data.DenKho || null,
+      NguoiGiao: data.NguoiGiao || null,
+      NguoiNhan: data.NguoiNhan || null,
+      SoLuong: data.SoLuong || 1,
       DienGiai: data.DienGiai || null
-    })
-
-    // Cập nhật người đang giữ hàng hóa
-    await db.query(`UPDATE HangHoa SET MaNV_DangDung = @MaNV2 WHERE MaHang = @MaHang`, {
-      MaHang: data.MaHang,
-      MaNV2: data.MaNV2
     })
 
     return {

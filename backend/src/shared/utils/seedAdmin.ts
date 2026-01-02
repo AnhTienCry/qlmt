@@ -9,11 +9,12 @@ interface SeedUser {
 }
 
 // Danh sách users cần seed
+// MaNV: 1=GĐ, 2=IT, 3=Kế toán, 4=Nhân sự, 5=Kinh doanh (theo schema seed)
 const seedUsers: SeedUser[] = [
-  { username: 'admin', password: 'admin123', role: 'admin', maNV: 1 },
-  { username: 'it', password: 'it123', role: 'it', maNV: 3 },
-  { username: 'director', password: 'director123', role: 'director' },
-  { username: 'user1', password: 'user123', role: 'user', maNV: 2 },
+  { username: 'admin', password: 'admin123', role: 'admin' },
+  { username: 'it', password: 'it123', role: 'it', maNV: 2 },
+  { username: 'director', password: 'director123', role: 'director', maNV: 1 },
+  { username: 'user1', password: 'user123', role: 'user', maNV: 3 },
 ]
 
 export const seedAdmin = async () => {

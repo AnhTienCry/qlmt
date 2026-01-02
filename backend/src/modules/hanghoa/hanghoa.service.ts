@@ -3,34 +3,25 @@ import { HangHoa, CreateHangHoaRequest, UpdateHangHoaRequest } from './hanghoa.t
 
 export const hanghoaService = {
   // Lấy tất cả hàng hóa
-  async getAll(filters?: { loaiHang?: string; trangThai?: string; maKho?: number }): Promise<HangHoa[]> {
+  async getAll(filters?: { loaiHang?: string; trangThai?: string }): Promise<HangHoa[]> {
     let query = `
-      SELECT hh.*, 
-             k.TenKho, 
-             ncc.TenNCC,
-             nv.TenNV
-      FROM HangHoa hh
-      LEFT JOIN Kho k ON hh.MaKho = k.MaKho
-      LEFT JOIN NCC ncc ON hh.MaNCC = ncc.MaNCC
-      LEFT JOIN NhanVien nv ON hh.MaNV_DangDung = nv.MaNV
+      SELECT MaHang, MaTS, LoaiHang, TenHang, Hang, Model, NamSX, 
+             TrangThai, ThongTinChiTiet, NgayTao, NgayCapNhat
+      FROM HangHoa
       WHERE 1=1
     `
     const params: Record<string, any> = {}
     
     if (filters?.loaiHang) {
-      query += ' AND hh.LoaiHang = @loaiHang'
+      query += ' AND LoaiHang = @loaiHang'
       params.loaiHang = filters.loaiHang
     }
     if (filters?.trangThai) {
-      query += ' AND hh.TrangThai = @trangThai'
+      query += ' AND TrangThai = @trangThai'
       params.trangThai = filters.trangThai
     }
-    if (filters?.maKho) {
-      query += ' AND hh.MaKho = @maKho'
-      params.maKho = filters.maKho
-    }
     
-    query += ' ORDER BY hh.NgayTao DESC'
+    query += ' ORDER BY NgayTao DESC'
     
     const result = await db.query<HangHoa>(query, params)
     return result.recordset
@@ -39,15 +30,10 @@ export const hanghoaService = {
   // Lấy theo ID
   async getById(id: number): Promise<HangHoa | null> {
     const result = await db.query<HangHoa>(`
-      SELECT hh.*, 
-             k.TenKho, 
-             ncc.TenNCC,
-             nv.TenNV
-      FROM HangHoa hh
-      LEFT JOIN Kho k ON hh.MaKho = k.MaKho
-      LEFT JOIN NCC ncc ON hh.MaNCC = ncc.MaNCC
-      LEFT JOIN NhanVien nv ON hh.MaNV_DangDung = nv.MaNV
-      WHERE hh.MaHang = @id
+      SELECT MaHang, MaTS, LoaiHang, TenHang, Hang, Model, NamSX, 
+             TrangThai, ThongTinChiTiet, NgayTao, NgayCapNhat
+      FROM HangHoa
+      WHERE MaHang = @id
     `, { id })
     return result.recordset[0] || null
   },
@@ -55,104 +41,94 @@ export const hanghoaService = {
   // Tìm kiếm
   async search(keyword: string): Promise<HangHoa[]> {
     const result = await db.query<HangHoa>(`
-      SELECT hh.*, 
-             k.TenKho, 
-             ncc.TenNCC,
-             nv.TenNV
-      FROM HangHoa hh
-      LEFT JOIN Kho k ON hh.MaKho = k.MaKho
-      LEFT JOIN NCC ncc ON hh.MaNCC = ncc.MaNCC
-      LEFT JOIN NhanVien nv ON hh.MaNV_DangDung = nv.MaNV
-      WHERE hh.TenHang LIKE @keyword 
-         OR hh.MaTS LIKE @keyword
-         OR hh.Hang LIKE @keyword
-         OR hh.Model LIKE @keyword
-         OR hh.SerialNumber LIKE @keyword
-      ORDER BY hh.TenHang
+      SELECT MaHang, MaTS, LoaiHang, TenHang, Hang, Model, NamSX, 
+             TrangThai, ThongTinChiTiet, NgayTao, NgayCapNhat
+      FROM HangHoa
+      WHERE TenHang LIKE @keyword 
+         OR MaTS LIKE @keyword
+         OR Hang LIKE @keyword
+         OR Model LIKE @keyword
+      ORDER BY TenHang
     `, { keyword: `%${keyword}%` })
     return result.recordset
   },
 
   // Thêm mới
   async create(data: CreateHangHoaRequest): Promise<HangHoa> {
+    // Kiểm tra MaTS không trùng
+    if (data.MaTS) {
+      const existing = await db.query<any>(`SELECT MaHang FROM HangHoa WHERE MaTS = @MaTS`, { MaTS: data.MaTS })
+      if (existing.recordset.length > 0) {
+        throw new Error(`Mã tài sản "${data.MaTS}" đã tồn tại`)
+      }
+    }
+
     const result = await db.query<HangHoa>(`
-      INSERT INTO HangHoa (
-        MaTS, TenHang, LoaiHang, ThongTinHang,
-        CPU, RAM, SSD, VGA, MAC, IPAddress, SerialNumber, OS,
-        Hang, Model, NamSX, MaKho, MaNCC, MaNV_DangDung,
-        TrangThai, TinhTrang
-      )
+      INSERT INTO HangHoa (MaTS, LoaiHang, TenHang, Hang, Model, NamSX, TrangThai, ThongTinChiTiet)
       OUTPUT INSERTED.*
-      VALUES (
-        @MaTS, @TenHang, @LoaiHang, @ThongTinHang,
-        @CPU, @RAM, @SSD, @VGA, @MAC, @IPAddress, @SerialNumber, @OS,
-        @Hang, @Model, @NamSX, @MaKho, @MaNCC, @MaNV_DangDung,
-        @TrangThai, @TinhTrang
-      )
+      VALUES (@MaTS, @LoaiHang, @TenHang, @Hang, @Model, @NamSX, @TrangThai, @ThongTinChiTiet)
     `, {
       MaTS: data.MaTS || null,
-      TenHang: data.TenHang,
       LoaiHang: data.LoaiHang,
-      ThongTinHang: data.ThongTinHang || null,
-      CPU: data.CPU || null,
-      RAM: data.RAM || null,
-      SSD: data.SSD || null,
-      VGA: data.VGA || null,
-      MAC: data.MAC || null,
-      IPAddress: data.IPAddress || null,
-      SerialNumber: data.SerialNumber || null,
-      OS: data.OS || null,
+      TenHang: data.TenHang,
       Hang: data.Hang || null,
       Model: data.Model || null,
       NamSX: data.NamSX || null,
-      MaKho: data.MaKho || null,
-      MaNCC: data.MaNCC || null,
-      MaNV_DangDung: data.MaNV_DangDung || null,
-      TrangThai: data.TrangThai || 'Trong kho',
-      TinhTrang: data.TinhTrang || null
+      TrangThai: data.TrangThai || 'Mới',
+      ThongTinChiTiet: data.ThongTinChiTiet ? JSON.stringify(data.ThongTinChiTiet) : null
     })
     return result.recordset[0]
   },
 
   // Cập nhật
   async update(id: number, data: UpdateHangHoaRequest): Promise<HangHoa | null> {
+    // Kiểm tra MaTS không trùng với hàng hóa khác
+    if (data.MaTS) {
+      const existing = await db.query<any>(`SELECT MaHang FROM HangHoa WHERE MaTS = @MaTS AND MaHang != @id`, { MaTS: data.MaTS, id })
+      if (existing.recordset.length > 0) {
+        throw new Error(`Mã tài sản "${data.MaTS}" đã tồn tại`)
+      }
+    }
+
     const fields: string[] = []
     const params: Record<string, any> = { id }
 
-    const fieldMap: Record<string, string> = {
-      MaTS: 'MaTS', TenHang: 'TenHang', LoaiHang: 'LoaiHang', ThongTinHang: 'ThongTinHang',
-      CPU: 'CPU', RAM: 'RAM', SSD: 'SSD', VGA: 'VGA', MAC: 'MAC', 
-      IPAddress: 'IPAddress', SerialNumber: 'SerialNumber', OS: 'OS',
-      Hang: 'Hang', Model: 'Model', NamSX: 'NamSX',
-      MaKho: 'MaKho', MaNCC: 'MaNCC', MaNV_DangDung: 'MaNV_DangDung',
-      TrangThai: 'TrangThai', TinhTrang: 'TinhTrang'
-    }
-
-    for (const [key, column] of Object.entries(fieldMap)) {
-      if ((data as any)[key] !== undefined) {
-        fields.push(`${column} = @${key}`)
-        params[key] = (data as any)[key]
-      }
+    if (data.MaTS !== undefined) { fields.push('MaTS = @MaTS'); params.MaTS = data.MaTS }
+    if (data.LoaiHang !== undefined) { fields.push('LoaiHang = @LoaiHang'); params.LoaiHang = data.LoaiHang }
+    if (data.TenHang !== undefined) { fields.push('TenHang = @TenHang'); params.TenHang = data.TenHang }
+    if (data.Hang !== undefined) { fields.push('Hang = @Hang'); params.Hang = data.Hang }
+    if (data.Model !== undefined) { fields.push('Model = @Model'); params.Model = data.Model }
+    if (data.NamSX !== undefined) { fields.push('NamSX = @NamSX'); params.NamSX = data.NamSX }
+    if (data.TrangThai !== undefined) { fields.push('TrangThai = @TrangThai'); params.TrangThai = data.TrangThai }
+    if (data.ThongTinChiTiet !== undefined) { 
+      fields.push('ThongTinChiTiet = @ThongTinChiTiet')
+      params.ThongTinChiTiet = data.ThongTinChiTiet ? JSON.stringify(data.ThongTinChiTiet) : null
     }
 
     if (fields.length === 0) return this.getById(id)
 
     fields.push('NgayCapNhat = SYSUTCDATETIME()')
 
-    await db.query(`
-      UPDATE HangHoa SET ${fields.join(', ')}
-      WHERE MaHang = @id
-    `, params)
+    await db.query(`UPDATE HangHoa SET ${fields.join(', ')} WHERE MaHang = @id`, params)
     
     return this.getById(id)
   },
 
   // Xóa
   async delete(id: number): Promise<boolean> {
-    const result = await db.query(`
-      DELETE FROM HangHoa WHERE MaHang = @id
-    `, { id })
-    return (result.rowsAffected[0] || 0) > 0
+    // Kiểm tra hàng hóa có đang được sử dụng trong phiếu nhập/xuất không
+    const checkNhap = await db.query<any>(`SELECT COUNT(*) as count FROM NhapHang WHERE MaHang = @id`, { id })
+    if (checkNhap.recordset[0]?.count > 0) {
+      throw new Error('Không thể xóa hàng hóa đang có phiếu nhập')
+    }
+    
+    const checkXuat = await db.query<any>(`SELECT COUNT(*) as count FROM XuatHang WHERE MaHang = @id`, { id })
+    if (checkXuat.recordset[0]?.count > 0) {
+      throw new Error('Không thể xóa hàng hóa đang có phiếu xuất')
+    }
+
+    const result = await db.query('DELETE FROM HangHoa WHERE MaHang = @id', { id })
+    return result.rowsAffected[0] > 0
   },
 
   // Đếm theo loại

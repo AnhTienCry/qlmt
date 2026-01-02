@@ -10,10 +10,10 @@ interface DieuChuyen {
   NgayDC: string
   MaHang: number
   TenHang?: string
-  MaNV1: number
-  TenNV1?: string
-  MaNV2: number
-  TenNV2?: string
+  NguoiGiao?: number
+  TenNVGiao?: string
+  NguoiNhan?: number
+  TenNVNhan?: string
   DienGiai?: string
 }
 
@@ -43,8 +43,8 @@ const TransferPage = () => {
   const [formData, setFormData] = useState({
     NgayDC: new Date().toISOString().split('T')[0],
     MaHang: '',
-    MaNV1: '',
-    MaNV2: '',
+    NguoiGiao: '',
+    NguoiNhan: '',
     DienGiai: ''
   })
 
@@ -54,12 +54,18 @@ const TransferPage = () => {
       const params = searchKeyword ? { search: searchKeyword } : {}
       const [dcRes, hhRes, nvRes] = await Promise.all([
         axios.get('/transfer', { params }),
-        axios.get('/hanghoa', { params: { trangThai: 'Đang sử dụng' } }),
+        axios.get('/stock/hangdaxuat'), // Lấy từ bảng Xuất - chỉ hàng đã xuất mới điều chuyển được
         axios.get('/employees')
       ])
       
       setItems(dcRes.data.data || [])
-      setHangHoas(hhRes.data.data || [])
+      // Map lại dữ liệu cho phù hợp với interface HangHoa
+      setHangHoas((hhRes.data.data || []).map((h: any) => ({
+        MaHang: h.MaHang,
+        TenHang: h.TenHang,
+        TenNV: h.TenNV_DangDung,
+        MaNV_DangDung: h.MaNV_DangDung
+      })))
       setNhanViens(nvRes.data.data || [])
     } catch (error) {
       console.error('Lỗi:', error)
@@ -82,8 +88,8 @@ const TransferPage = () => {
     setFormData({
       NgayDC: new Date().toISOString().split('T')[0],
       MaHang: '',
-      MaNV1: '',
-      MaNV2: '',
+      NguoiGiao: '',
+      NguoiNhan: '',
       DienGiai: ''
     })
     setShowModal(true)
@@ -95,18 +101,18 @@ const TransferPage = () => {
     setFormData({
       ...formData,
       MaHang: maHang,
-      MaNV1: selected?.MaNV_DangDung?.toString() || ''
+      NguoiGiao: selected?.MaNV_DangDung?.toString() || ''
     })
   }
 
   const handleSave = async () => {
     try {
-      if (!formData.MaHang || !formData.MaNV1 || !formData.MaNV2) {
+      if (!formData.MaHang || !formData.NguoiGiao || !formData.NguoiNhan) {
         alert('Vui lòng điền đầy đủ thông tin')
         return
       }
 
-      if (formData.MaNV1 === formData.MaNV2) {
+      if (formData.NguoiGiao === formData.NguoiNhan) {
         alert('Người giao và người nhận không được trùng nhau')
         return
       }
@@ -115,8 +121,8 @@ const TransferPage = () => {
       await axios.post('/transfer', {
         NgayDC: formData.NgayDC,
         MaHang: parseInt(formData.MaHang),
-        MaNV1: parseInt(formData.MaNV1),
-        MaNV2: parseInt(formData.MaNV2),
+        NguoiGiao: parseInt(formData.NguoiGiao),
+        NguoiNhan: parseInt(formData.NguoiNhan),
         DienGiai: formData.DienGiai || null
       })
       
@@ -162,26 +168,26 @@ const TransferPage = () => {
       render: (item: DieuChuyen) => <span className="text-white font-medium">{item.TenHang}</span>
     },
     { 
-      key: 'TenNV1', 
+      key: 'TenNVGiao', 
       header: 'Người giao',
       render: (item: DieuChuyen) => (
         <div className="flex items-center">
           <svg className="w-4 h-4 mr-2 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
           </svg>
-          <span className="text-gray-300">{item.TenNV1}</span>
+          <span className="text-gray-300">{item.TenNVGiao || '-'}</span>
         </div>
       )
     },
     { 
-      key: 'TenNV2', 
+      key: 'TenNVNhan', 
       header: 'Người nhận',
       render: (item: DieuChuyen) => (
         <div className="flex items-center">
           <svg className="w-4 h-4 mr-2 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
           </svg>
-          <span className="text-gray-300">{item.TenNV2}</span>
+          <span className="text-gray-300">{item.TenNVNhan || '-'}</span>
         </div>
       )
     },
@@ -226,8 +232,8 @@ const TransferPage = () => {
             <Button variant="secondary" onClick={() => exportTransfer(items.map(i => ({
               MaDC: i.MaDC,
               TenHang: i.TenHang,
-              TenNVNhan: i.TenNV2,
-              TenNVGiao: i.TenNV1,
+              TenNVNhan: i.TenNVNhan,
+              TenNVGiao: i.TenNVGiao,
               NgayDC: i.NgayDC,
               LyDo: i.DienGiai
             })))}>
@@ -321,15 +327,15 @@ const TransferPage = () => {
             <Select
               label="Người giao (đang giữ) *"
               options={nhanViens.map(nv => ({ value: nv.maNV, label: `${nv.maNV} - ${nv.tenNV}` }))}
-              value={formData.MaNV1}
-              onChange={(v) => setFormData({ ...formData, MaNV1: v })}
+              value={formData.NguoiGiao}
+              onChange={(v) => setFormData({ ...formData, NguoiGiao: v })}
               placeholder="-- Chọn nhân viên --"
             />
             <Select
               label="Người nhận *"
               options={nhanViens.map(nv => ({ value: nv.maNV, label: `${nv.maNV} - ${nv.tenNV}` }))}
-              value={formData.MaNV2}
-              onChange={(v) => setFormData({ ...formData, MaNV2: v })}
+              value={formData.NguoiNhan}
+              onChange={(v) => setFormData({ ...formData, NguoiNhan: v })}
               placeholder="-- Chọn nhân viên --"
             />
           </div>

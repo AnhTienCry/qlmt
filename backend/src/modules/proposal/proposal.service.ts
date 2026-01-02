@@ -20,8 +20,8 @@ export class ProposalService {
       moTa: record.MoTa,
       lyDo: record.LyDo,
       mucDoUuTien: record.MucDoUuTien,
-      maMT: record.MaMT,
-      tenMayTinh: record.TenMayTinh || null,
+      maHang: record.MaHang,
+      tenHangHoa: record.TenHangHoa || null,
       nguoiTao: {
         userId: record.UserId_NguoiTao,
         tenNV: record.TenNguoiTao || null,
@@ -88,13 +88,13 @@ export class ProposalService {
     const dataQuery = `
       SELECT 
         yc.*,
-        mt.TenMT as TenMayTinh,
+        hh.TenHang as TenHangHoa,
         nvTao.TenNV as TenNguoiTao,
         uTao.Username as UsernameNguoiTao,
         nvIT.TenNV as TenIT,
         nvGD.TenNV as TenGD
       FROM YeuCauDeXuat yc
-      LEFT JOIN MayTinh mt ON yc.MaMT = mt.MaMT
+      LEFT JOIN HangHoa hh ON yc.MaHang = hh.MaHang
       LEFT JOIN Users uTao ON yc.UserId_NguoiTao = uTao.UserId
       LEFT JOIN NhanVien nvTao ON uTao.MaNV = nvTao.MaNV
       LEFT JOIN Users uIT ON yc.UserId_IT = uIT.UserId
@@ -120,13 +120,13 @@ export class ProposalService {
     const query = `
       SELECT 
         yc.*,
-        mt.TenMT as TenMayTinh,
+        hh.TenHang as TenHangHoa,
         nvTao.TenNV as TenNguoiTao,
         uTao.Username as UsernameNguoiTao,
         nvIT.TenNV as TenIT,
         nvGD.TenNV as TenGD
       FROM YeuCauDeXuat yc
-      LEFT JOIN MayTinh mt ON yc.MaMT = mt.MaMT
+      LEFT JOIN HangHoa hh ON yc.MaHang = hh.MaHang
       LEFT JOIN Users uTao ON yc.UserId_NguoiTao = uTao.UserId
       LEFT JOIN NhanVien nvTao ON uTao.MaNV = nvTao.MaNV
       LEFT JOIN Users uIT ON yc.UserId_IT = uIT.UserId
@@ -157,12 +157,12 @@ export class ProposalService {
 
     const query = `
       INSERT INTO YeuCauDeXuat (
-        LoaiYC, TieuDe, MoTa, LyDo, MucDoUuTien, MaMT, 
+        LoaiYC, TieuDe, MoTa, LyDo, MucDoUuTien, MaHang, 
         MaNV_NguoiTao, UserId_NguoiTao, TrangThai
       )
       OUTPUT INSERTED.MaYC
       VALUES (
-        @loaiYC, @tieuDe, @moTa, @lyDo, @mucDoUuTien, @maMT,
+        @loaiYC, @tieuDe, @moTa, @lyDo, @mucDoUuTien, @maHang,
         @maNV, @userId, 'pending'
       )
     `
@@ -172,7 +172,7 @@ export class ProposalService {
       moTa: data.moTa || null,
       lyDo: data.lyDo || null,
       mucDoUuTien: data.mucDoUuTien || 'Trung bình',
-      maMT: data.maMT || null,
+      maHang: data.maHang || null,
       maNV: maNV,
       userId: userId,
     })

@@ -6,6 +6,7 @@ import { exportNCC } from '@/libs/excel'
 
 interface NCC {
   MaNCC: number
+  MaSoThue?: string
   TenNCC: string
   DiaChi?: string
   SoDienThoai?: string
@@ -22,6 +23,7 @@ const NCCPage = () => {
   const [searchKeyword, setSearchKeyword] = useState('')
   const [saving, setSaving] = useState(false)
   const [formData, setFormData] = useState({
+    MaSoThue: '',
     TenNCC: '',
     DiaChi: '',
     SoDienThoai: '',
@@ -50,6 +52,7 @@ const NCCPage = () => {
   const openAddModal = () => {
     setEditingNcc(null)
     setFormData({
+      MaSoThue: '',
       TenNCC: '',
       DiaChi: '',
       SoDienThoai: '',
@@ -63,6 +66,7 @@ const NCCPage = () => {
   const openEditModal = (ncc: NCC) => {
     setEditingNcc(ncc)
     setFormData({
+      MaSoThue: ncc.MaSoThue || '',
       TenNCC: ncc.TenNCC,
       DiaChi: ncc.DiaChi || '',
       SoDienThoai: ncc.SoDienThoai || '',
@@ -107,9 +111,9 @@ const NCCPage = () => {
 
   const columns = [
     { 
-      key: 'MaNCC', 
-      header: 'Mã',
-      render: (item: NCC) => <span className="text-gray-400">#{item.MaNCC}</span>
+      key: 'MaSoThue', 
+      header: 'Mã NCC',
+      render: (item: NCC) => <span className="text-gray-300 font-mono">{item.MaSoThue || '-'}</span>
     },
     { 
       key: 'TenNCC', 
@@ -264,6 +268,14 @@ const NCCPage = () => {
         }
       >
         <div className="space-y-4">
+          <Input
+            label="Mã NCC (Mã số thuế) *"
+            value={formData.MaSoThue}
+            onChange={(e) => setFormData({ ...formData, MaSoThue: e.target.value })}
+            placeholder="Nhập mã số thuế"
+            className="font-mono"
+          />
+
           <Input
             label="Tên nhà cung cấp *"
             value={formData.TenNCC}

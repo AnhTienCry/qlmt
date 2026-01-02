@@ -10,7 +10,8 @@ router.use(authMiddleware)
 router.get('/', async (req, res) => {
   try {
     const result = await db.query<any>(`
-      SELECT MaKho, TenKho, DiaChi, MoTa, NgayTao
+      SELECT MaKho as maKho, ISNULL(MaKhoText, CAST(MaKho AS NVARCHAR)) as maKhoText, 
+             TenKho as tenKho, DiaChi as diaChi, NgayTao as ngayTao
       FROM Kho ORDER BY TenKho
     `)
     res.json({ success: true, data: result.recordset })
@@ -22,16 +23,28 @@ router.get('/', async (req, res) => {
 // Thêm kho mới
 router.post('/', async (req, res) => {
   try {
-    const { TenKho, DiaChi, MoTa } = req.body
+    const { MaKhoText, TenKho, DiaChi } = req.body
+    if (!MaKhoText) {
+      return res.status(400).json({ error: 'Mã kho là bắt buộc' })
+    }
     if (!TenKho) {
       return res.status(400).json({ error: 'Tên kho là bắt buộc' })
     }
     
+    // Kiểm tra mã kho đã tồn tại chưa
+    const checkExist = await db.query<any>(`
+      SELECT MaKho FROM Kho WHERE MaKhoText = @MaKhoText
+    `, { MaKhoText })
+    
+    if (checkExist.recordset.length > 0) {
+      return res.status(400).json({ error: 'Mã kho đã tồn tại' })
+    }
+    
     const result = await db.query<any>(`
-      INSERT INTO Kho (TenKho, DiaChi, MoTa)
-      OUTPUT INSERTED.MaKho, INSERTED.TenKho, INSERTED.DiaChi, INSERTED.MoTa
-      VALUES (@TenKho, @DiaChi, @MoTa)
-    `, { TenKho, DiaChi: DiaChi || null, MoTa: MoTa || null })
+      INSERT INTO Kho (MaKhoText, TenKho, DiaChi)
+      OUTPUT INSERTED.MaKho as maKho, INSERTED.MaKhoText as maKhoText, INSERTED.TenKho as tenKho, INSERTED.DiaChi as diaChi
+      VALUES (@MaKhoText, @TenKho, @DiaChi)
+    `, { MaKhoText, TenKho, DiaChi: DiaChi || null })
     
     res.json({ success: true, data: result.recordset[0] })
   } catch (error: any) {
@@ -43,17 +56,29 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params
-    const { TenKho, DiaChi, MoTa } = req.body
+    const { MaKhoText, TenKho, DiaChi } = req.body
     
+    if (!MaKhoText) {
+      return res.status(400).json({ error: 'Mã kho là bắt buộc' })
+    }
     if (!TenKho) {
       return res.status(400).json({ error: 'Tên kho là bắt buộc' })
     }
     
+    // Kiểm tra mã kho đã tồn tại ở kho khác chưa
+    const checkExist = await db.query<any>(`
+      SELECT MaKho FROM Kho WHERE MaKhoText = @MaKhoText AND MaKho != @id
+    `, { MaKhoText, id: parseInt(id) })
+    
+    if (checkExist.recordset.length > 0) {
+      return res.status(400).json({ error: 'Mã kho đã tồn tại' })
+    }
+    
     const result = await db.query<any>(`
-      UPDATE Kho SET TenKho = @TenKho, DiaChi = @DiaChi, MoTa = @MoTa, NgayCapNhat = SYSUTCDATETIME()
-      OUTPUT INSERTED.MaKho, INSERTED.TenKho, INSERTED.DiaChi, INSERTED.MoTa
+      UPDATE Kho SET MaKhoText = @MaKhoText, TenKho = @TenKho, DiaChi = @DiaChi, NgayCapNhat = SYSUTCDATETIME()
+      OUTPUT INSERTED.MaKho as maKho, INSERTED.MaKhoText as maKhoText, INSERTED.TenKho as tenKho, INSERTED.DiaChi as diaChi
       WHERE MaKho = @id
-    `, { id: parseInt(id), TenKho, DiaChi: DiaChi || null, MoTa: MoTa || null })
+    `, { id: parseInt(id), MaKhoText, TenKho, DiaChi: DiaChi || null })
     
     if (result.recordset.length === 0) {
       return res.status(404).json({ error: 'Không tìm thấy kho' })

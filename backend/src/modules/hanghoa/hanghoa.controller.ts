@@ -5,7 +5,7 @@ export const hanghoaController = {
   // GET /api/hanghoa
   async getAll(req: Request, res: Response, next: NextFunction) {
     try {
-      const { search, loaiHang, trangThai, maKho } = req.query
+      const { search, loaiHang, trangThai } = req.query
       
       let hanghoas
       if (search && typeof search === 'string') {
@@ -13,8 +13,7 @@ export const hanghoaController = {
       } else {
         hanghoas = await hanghoaService.getAll({
           loaiHang: loaiHang as string,
-          trangThai: trangThai as string,
-          maKho: maKho ? parseInt(maKho as string) : undefined
+          trangThai: trangThai as string
         })
       }
       

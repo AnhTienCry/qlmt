@@ -19,8 +19,8 @@ export interface Proposal {
   moTa: string | null
   lyDo: string | null
   mucDoUuTien: PriorityLevel
-  maMT: number | null
-  tenMayTinh: string | null
+  maHang: number | null
+  tenHangHoa: string | null
   nguoiTao: {
     userId: number
     tenNV: string | null
@@ -51,7 +51,7 @@ export interface CreateProposalRequest {
   moTa?: string
   lyDo?: string
   mucDoUuTien?: PriorityLevel
-  maMT?: number
+  maHang?: number
 }
 
 export interface ProposalStats {

@@ -5,9 +5,9 @@ import { exportWarehouses } from '@/libs/excel'
 
 interface Warehouse {
   maKho: number
+  maKhoText: string
   tenKho: string
   diaChi: string
-  moTa: string
   ngayTao: string
 }
 
@@ -18,9 +18,9 @@ const WarehousesPage = () => {
   const [editingId, setEditingId] = useState<number | null>(null)
   
   // Form state
+  const [maKhoText, setMaKhoText] = useState('')
   const [tenKho, setTenKho] = useState('')
   const [diaChi, setDiaChi] = useState('')
-  const [moTa, setMoTa] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
@@ -41,6 +41,10 @@ const WarehousesPage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!maKhoText.trim()) {
+      alert('Vui lòng nhập mã kho')
+      return
+    }
     if (!tenKho.trim()) {
       alert('Vui lòng nhập tên kho')
       return
@@ -48,10 +52,12 @@ const WarehousesPage = () => {
     
     try {
       setSubmitting(true)
+      const data = { MaKhoText: maKhoText, TenKho: tenKho, DiaChi: diaChi }
+      
       if (editingId) {
-        await api.put(`/warehouses/${editingId}`, { tenKho, diaChi, moTa })
+        await api.put(`/warehouses/${editingId}`, data)
       } else {
-        await api.post('/warehouses', { tenKho, diaChi, moTa })
+        await api.post('/warehouses', data)
       }
       setShowModal(false)
       resetForm()
@@ -65,9 +71,9 @@ const WarehousesPage = () => {
 
   const handleEdit = (item: Warehouse) => {
     setEditingId(item.maKho)
+    setMaKhoText(item.maKhoText || '')
     setTenKho(item.tenKho || '')
     setDiaChi(item.diaChi || '')
-    setMoTa(item.moTa || '')
     setShowModal(true)
   }
 
@@ -84,9 +90,9 @@ const WarehousesPage = () => {
 
   const resetForm = () => {
     setEditingId(null)
+    setMaKhoText('')
     setTenKho('')
     setDiaChi('')
-    setMoTa('')
   }
 
   const openAddModal = () => {
@@ -112,7 +118,7 @@ const WarehousesPage = () => {
         </div>
         <div className="flex gap-3">
           <button
-            onClick={() => exportWarehouses(warehouses.map(w => ({ MaKho: w.maKho, TenKho: w.tenKho, DiaChi: w.diaChi, MoTa: w.moTa })))}
+            onClick={() => exportWarehouses(warehouses.map(w => ({ MaKho: w.maKhoText, TenKho: w.tenKho, DiaChi: w.diaChi })))}
             className="flex items-center gap-2 px-4 py-2 bg-[#2a2a2a] hover:bg-[#3a3a3a] text-gray-300 rounded-lg transition"
           >
             <Download className="w-4 h-4" />
@@ -137,14 +143,13 @@ const WarehousesPage = () => {
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Mã kho</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Tên kho</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Địa chỉ</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Mô tả</th>
                 <th className="text-right px-4 py-3 text-xs font-medium text-gray-400 uppercase">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#2e2e2e]">
               {warehouses.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-16 text-center">
+                  <td colSpan={4} className="px-6 py-16 text-center">
                     <svg className="w-12 h-12 mx-auto mb-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                     </svg>
@@ -155,10 +160,9 @@ const WarehousesPage = () => {
               ) : (
                 warehouses.map((item) => (
                   <tr key={item.maKho} className="hover:bg-[#252525] transition">
-                    <td className="px-4 py-3 text-sm text-gray-300">#{item.maKho}</td>
+                    <td className="px-4 py-3 text-sm text-gray-300 font-mono">{item.maKhoText}</td>
                     <td className="px-4 py-3 text-sm text-white font-medium">{item.tenKho}</td>
                     <td className="px-4 py-3 text-sm text-gray-400">{item.diaChi || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-400">{item.moTa || '-'}</td>
                     <td className="px-4 py-3 text-right">
                       <button
                         onClick={() => handleEdit(item)}
@@ -197,6 +201,16 @@ const WarehousesPage = () => {
             </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Mã kho *</label>
+                <input
+                  type="text"
+                  value={maKhoText}
+                  onChange={(e) => setMaKhoText(e.target.value.toUpperCase())}
+                  className="w-full px-3 py-2 bg-[#0f0f0f] border border-[#2e2e2e] rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 font-mono"
+                  placeholder="VD: KHO01, KHOHCM..."
+                />
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-gray-400 mb-1">Tên kho *</label>
                 <input
                   type="text"
@@ -213,17 +227,7 @@ const WarehousesPage = () => {
                   value={diaChi}
                   onChange={(e) => setDiaChi(e.target.value)}
                   className="w-full px-3 py-2 bg-[#0f0f0f] border border-[#2e2e2e] rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
-                  placeholder="Nhập địa chỉ"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">Mô tả</label>
-                <textarea
-                  value={moTa}
-                  onChange={(e) => setMoTa(e.target.value)}
-                  rows={3}
-                  className="w-full px-3 py-2 bg-[#0f0f0f] border border-[#2e2e2e] rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 resize-none"
-                  placeholder="Nhập mô tả"
+                  placeholder="Nhập địa chỉ kho"
                 />
               </div>
               <div className="flex gap-3 pt-2">

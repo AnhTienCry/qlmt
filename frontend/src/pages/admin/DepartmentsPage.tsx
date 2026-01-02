@@ -5,6 +5,7 @@ import { exportDepartments } from '@/libs/excel'
 
 interface Department {
   maPB: number
+  maPBText: string
   tenPB: string
   moTa: string
   ngayTao: string
@@ -17,6 +18,7 @@ const DepartmentsPage = () => {
   const [editingId, setEditingId] = useState<number | null>(null)
   
   // Form state
+  const [maPBText, setMaPBText] = useState('')
   const [tenPB, setTenPB] = useState('')
   const [moTa, setMoTa] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -39,6 +41,10 @@ const DepartmentsPage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!maPBText.trim()) {
+      alert('Vui lòng nhập mã phòng ban')
+      return
+    }
     if (!tenPB.trim()) {
       alert('Vui lòng nhập tên phòng ban')
       return
@@ -46,10 +52,12 @@ const DepartmentsPage = () => {
     
     try {
       setSubmitting(true)
+      const data = { maPBText, tenPB, moTa }
+      
       if (editingId) {
-        await api.put(`/departments/${editingId}`, { tenPB, moTa })
+        await api.put(`/departments/${editingId}`, data)
       } else {
-        await api.post('/departments', { tenPB, moTa })
+        await api.post('/departments', data)
       }
       setShowModal(false)
       resetForm()
@@ -63,6 +71,7 @@ const DepartmentsPage = () => {
 
   const handleEdit = (item: Department) => {
     setEditingId(item.maPB)
+    setMaPBText(item.maPBText || '')
     setTenPB(item.tenPB || '')
     setMoTa(item.moTa || '')
     setShowModal(true)
@@ -81,6 +90,7 @@ const DepartmentsPage = () => {
 
   const resetForm = () => {
     setEditingId(null)
+    setMaPBText('')
     setTenPB('')
     setMoTa('')
   }
@@ -108,7 +118,7 @@ const DepartmentsPage = () => {
         </div>
         <div className="flex gap-3">
           <button
-            onClick={() => exportDepartments(departments.map(d => ({ MaPB: d.maPB, TenPB: d.tenPB, DiaChi: d.moTa })))}
+            onClick={() => exportDepartments(departments.map(d => ({ MaPB: d.maPBText, TenPB: d.tenPB, MoTa: d.moTa })))}
             className="flex items-center gap-2 px-4 py-2 bg-[#2a2a2a] hover:bg-[#3a3a3a] text-gray-300 rounded-lg transition"
           >
             <Download className="w-4 h-4" />
@@ -150,7 +160,7 @@ const DepartmentsPage = () => {
               ) : (
                 departments.map((item) => (
                   <tr key={item.maPB} className="hover:bg-[#252525] transition">
-                    <td className="px-4 py-3 text-sm text-gray-300">#{item.maPB}</td>
+                    <td className="px-4 py-3 text-sm text-gray-300 font-mono">{item.maPBText}</td>
                     <td className="px-4 py-3 text-sm text-white font-medium">{item.tenPB}</td>
                     <td className="px-4 py-3 text-sm text-gray-400">{item.moTa || '-'}</td>
                     <td className="px-4 py-3 text-right">
@@ -190,6 +200,16 @@ const DepartmentsPage = () => {
               {editingId ? 'Sửa phòng ban' : 'Thêm phòng ban mới'}
             </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Mã phòng ban *</label>
+                <input
+                  type="text"
+                  value={maPBText}
+                  onChange={(e) => setMaPBText(e.target.value.toUpperCase())}
+                  className="w-full px-3 py-2 bg-[#0f0f0f] border border-[#2e2e2e] rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 font-mono"
+                  placeholder="VD: IT, KT, NS, GD..."
+                />
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-400 mb-1">Tên phòng ban *</label>
                 <input

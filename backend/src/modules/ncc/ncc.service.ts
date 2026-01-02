@@ -33,11 +33,22 @@ export const nccService = {
 
   // Thêm NCC mới
   async create(data: CreateNCCRequest): Promise<NCC> {
+    // Kiểm tra MST đã tồn tại chưa
+    if (data.MaSoThue) {
+      const checkMST = await db.query<NCC>(`
+        SELECT MaNCC FROM NCC WHERE MaSoThue = @MaSoThue
+      `, { MaSoThue: data.MaSoThue })
+      if (checkMST.recordset.length > 0) {
+        throw new Error('Mã số thuế đã tồn tại')
+      }
+    }
+
     const result = await db.query<NCC>(`
-      INSERT INTO NCC (TenNCC, DiaChi, SoDienThoai, Email, NguoiLienHe, GhiChu)
+      INSERT INTO NCC (MaSoThue, TenNCC, DiaChi, SoDienThoai, Email, NguoiLienHe, GhiChu)
       OUTPUT INSERTED.*
-      VALUES (@TenNCC, @DiaChi, @SoDienThoai, @Email, @NguoiLienHe, @GhiChu)
+      VALUES (@MaSoThue, @TenNCC, @DiaChi, @SoDienThoai, @Email, @NguoiLienHe, @GhiChu)
     `, {
+      MaSoThue: data.MaSoThue || null,
       TenNCC: data.TenNCC,
       DiaChi: data.DiaChi || null,
       SoDienThoai: data.SoDienThoai || null,
@@ -53,6 +64,19 @@ export const nccService = {
     const fields: string[] = []
     const params: Record<string, any> = { id }
 
+    if (data.MaSoThue !== undefined) {
+      // Kiểm tra MST đã tồn tại ở NCC khác chưa
+      if (data.MaSoThue) {
+        const checkMST = await db.query<NCC>(`
+          SELECT MaNCC FROM NCC WHERE MaSoThue = @MaSoThue AND MaNCC != @id
+        `, { MaSoThue: data.MaSoThue, id })
+        if (checkMST.recordset.length > 0) {
+          throw new Error('Mã số thuế đã tồn tại')
+        }
+      }
+      fields.push('MaSoThue = @MaSoThue')
+      params.MaSoThue = data.MaSoThue
+    }
     if (data.TenNCC !== undefined) {
       fields.push('TenNCC = @TenNCC')
       params.TenNCC = data.TenNCC

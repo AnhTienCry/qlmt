@@ -2,6 +2,7 @@
 
 export interface NCC {
   MaNCC: number
+  MaSoThue?: string
   TenNCC: string
   DiaChi?: string
   SoDienThoai?: string
@@ -13,6 +14,7 @@ export interface NCC {
 }
 
 export interface CreateNCCRequest {
+  MaSoThue?: string
   TenNCC: string
   DiaChi?: string
   SoDienThoai?: string
