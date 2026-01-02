@@ -1,0 +1,74 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-primary: #0f0f0f;
+  --bg-secondary: #1a1a1a;
+  --bg-card: #1e1e1e;
+  --bg-hover: #2a2a2a;
+  --text-primary: #ffffff;
+  --text-secondary: #a0a0a0;
+  --text-muted: #6b6b6b;
+  --border-color: #2e2e2e;
+  --accent: #3b82f6;
+  --accent-hover: #2563eb;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #3a3a3a #1a1a1a;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: #1a1a1a;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #3a3a3a;
+  border-radius: 4px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #4a4a4a;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+@layer base {
+  html {
+    @apply antialiased;
+  }
+}
+
+@layer components {
+  .dark-card {
+    @apply bg-[#1e1e1e] border border-[#2e2e2e] rounded-xl;
+  }
+  
+  .dark-input {
+    @apply bg-[#1a1a1a] border border-[#2e2e2e] text-white placeholder-gray-500 
+           focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-lg px-4 py-3 
+           transition-colors;
+  }
+  
+  .dark-btn-primary {
+    @apply bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-3 rounded-lg 
+           transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 
+           focus:ring-offset-[#0f0f0f];
+  }
+  
+  .dark-btn-secondary {
+    @apply bg-[#2a2a2a] hover:bg-[#3a3a3a] text-white font-medium px-6 py-3 rounded-lg 
+           border border-[#3e3e3e] transition-all duration-200;
+  }
+}
