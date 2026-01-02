@@ -1,4 +1,7 @@
 export { default as MainLayout } from './Mainlayout'
 export { default as DashboardLayout } from './DashboardLayout'
+export { default as UserLayout } from './UserLayout'
+export { default as ITLayout } from './ITLayout'
+export { default as DirectorLayout } from './DirectorLayout'
 export { default as Header } from './Header'
 export { default as Footer } from './Footer'

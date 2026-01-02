@@ -1,10 +1,11 @@
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { ROUTES } from '@/constants'
+import { UserRole } from '@/types/auth.types'
 
 interface ProtectedRouteProps {
   children: React.ReactNode
-  allowedRoles?: ('admin' | 'user')[]
+  allowedRoles?: UserRole[]
 }
 
 const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
@@ -26,13 +27,14 @@ const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
 
   // Kiểm tra role nếu có yêu cầu
   if (allowedRoles && !allowedRoles.includes(user.role)) {
-    // User không có quyền -> redirect về trang phù hợp
-    if (user.role === 'user') {
-      return <Navigate to={ROUTES.HOME} replace />
+    // Redirect về dashboard tương ứng với role
+    const roleDefaultRoutes: Record<UserRole, string> = {
+      admin: ROUTES.DASHBOARD,
+      it: ROUTES.IT_DASHBOARD,
+      director: ROUTES.DIRECTOR_DASHBOARD,
+      user: ROUTES.USER_DASHBOARD,
     }
-    if (user.role === 'admin') {
-      return <Navigate to={ROUTES.DASHBOARD} replace />
-    }
+    return <Navigate to={roleDefaultRoutes[user.role]} replace />
   }
 
   return <>{children}</>

@@ -17,7 +17,7 @@ export default function Header() {
       <div className="container mx-auto px-4 py-3">
         <div className="flex items-center justify-between">
           {/* Logo */}
-          <Link to={ROUTES.HOME} className="flex items-center gap-3 group">
+          <Link to={ROUTES.DASHBOARD} className="flex items-center gap-3 group">
             <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
               <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -33,41 +33,17 @@ export default function Header() {
           <nav className="flex items-center gap-3">
             {user ? (
               <>
-                {/* Admin Dashboard Link */}
-                {user.role === 'admin' && (
-                  <Link
-                    to={ROUTES.DASHBOARD}
-                    className="hidden sm:flex items-center gap-2 px-4 py-2 text-gray-300 hover:text-white hover:bg-[#2a2a2a] rounded-lg transition"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                    </svg>
-                    Dashboard
-                  </Link>
-                )}
-
-                {/* User link - My Computer */}
-                {user.role === 'user' && (
-                  <Link
-                    to={ROUTES.MY_COMPUTER}
-                    className="hidden sm:flex items-center gap-2 px-4 py-2 text-gray-300 hover:text-white hover:bg-[#2a2a2a] rounded-lg transition"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
-                    Máy tính của tôi
-                  </Link>
-                )}
-                
                 {/* User Info */}
                 <div className="flex items-center gap-3 pl-3 border-l border-[#2e2e2e]">
                   <div className="hidden sm:block text-right">
-                    <p className="text-sm font-medium text-white">{user.username}</p>
-                    <p className="text-xs text-gray-500 capitalize">{user.role}</p>
+                    <p className="text-sm font-medium text-white">{user.tenNV || user.username}</p>
+                    <p className="text-xs text-gray-500">
+                      {user.tenPB ? `${user.tenPB} • ` : ''}{user.role.toUpperCase()}
+                    </p>
                   </div>
                   <div className="w-9 h-9 bg-blue-600 rounded-full flex items-center justify-center">
                     <span className="text-white font-semibold text-sm">
-                      {user.username?.charAt(0).toUpperCase()}
+                      {(user.tenNV || user.username)?.charAt(0).toUpperCase()}
                     </span>
                   </div>
                 </div>

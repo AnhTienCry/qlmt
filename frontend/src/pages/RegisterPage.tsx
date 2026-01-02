@@ -41,7 +41,7 @@ const RegisterPage = () => {
     try {
       const result = await authApi.register(formData)
       login(result.user, result.token)
-      navigate(ROUTES.HOME)
+      navigate(ROUTES.DASHBOARD)
     } catch (err: any) {
       setError(err.response?.data?.message || 'Đăng ký thất bại')
     } finally {
@@ -118,13 +118,6 @@ const RegisterPage = () => {
               </Link>
             </div>
           </form>
-
-          {/* Footer */}
-          <div className="mt-6 text-center">
-            <Link to={ROUTES.HOME} className="text-sm text-gray-500 hover:text-gray-400">
-              ← Quay lại trang chủ
-            </Link>
-          </div>
         </div>
       </div>
     </div>

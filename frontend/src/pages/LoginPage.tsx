@@ -12,6 +12,22 @@ const LoginPage = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  // Hàm lấy route dashboard theo role
+  const getDashboardByRole = (role: string): string => {
+    switch (role) {
+      case 'admin':
+        return ROUTES.DASHBOARD
+      case 'it':
+        return ROUTES.IT_DASHBOARD
+      case 'director':
+        return ROUTES.DIRECTOR_DASHBOARD
+      case 'user':
+        return ROUTES.USER_DASHBOARD
+      default:
+        return ROUTES.DASHBOARD
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -21,12 +37,9 @@ const LoginPage = () => {
       const result = await authApi.login(formData)
       login(result.user, result.token)
       
-      // Redirect based on role
-      if (result.user.role === 'admin') {
-        navigate(ROUTES.DASHBOARD)
-      } else {
-        navigate(ROUTES.HOME)
-      }
+      // Redirect theo role
+      const dashboardRoute = getDashboardByRole(result.user.role)
+      navigate(dashboardRoute)
     } catch (err: any) {
       setError(err.response?.data?.message || 'Đăng nhập thất bại')
     } finally {
@@ -88,13 +101,6 @@ const LoginPage = () => {
               </Link>
             </div>
           </form>
-
-          {/* Footer */}
-          <div className="mt-6 text-center">
-            <Link to={ROUTES.HOME} className="text-sm text-gray-500 hover:text-gray-400">
-              ← Quay lại trang chủ
-            </Link>
-          </div>
         </div>
       </div>
     </div>

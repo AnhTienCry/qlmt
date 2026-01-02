@@ -70,7 +70,7 @@ BEGIN
         UserId INT IDENTITY(1,1) PRIMARY KEY,
         Username NVARCHAR(100) NOT NULL UNIQUE,
         PasswordHash NVARCHAR(255) NOT NULL,
-        Role NVARCHAR(20) NOT NULL CHECK (Role IN ('admin', 'user')),
+        Role NVARCHAR(20) NOT NULL CHECK (Role IN ('admin', 'it', 'director', 'user')),
         MaNV INT FOREIGN KEY REFERENCES NhanVien(MaNV),
         IsActive BIT DEFAULT 1,
         LastLogin DATETIME2,
@@ -88,6 +88,20 @@ BEGIN
             EXEC sp_rename 'Users.Password', 'PasswordHash', 'COLUMN';
         END
     END
+    
+    -- Update role constraint to include new roles
+    -- Drop old constraint if exists and add new one
+    DECLARE @constraintName NVARCHAR(200)
+    SELECT @constraintName = name FROM sys.check_constraints 
+    WHERE parent_object_id = OBJECT_ID('Users') AND name LIKE '%Role%'
+    
+    IF @constraintName IS NOT NULL
+    BEGIN
+        EXEC('ALTER TABLE Users DROP CONSTRAINT ' + @constraintName)
+    END
+    
+    ALTER TABLE Users ADD CONSTRAINT CK_Users_Role 
+    CHECK (Role IN ('admin', 'it', 'director', 'user'))
 END
 GO
 
@@ -205,6 +219,59 @@ END
 GO
 
 -- =============================================
+-- 9. BẢNG YÊU CẦU ĐỀ XUẤT (Proposals)
+-- =============================================
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'YeuCauDeXuat')
+BEGIN
+    CREATE TABLE YeuCauDeXuat (
+        MaYC INT IDENTITY(1,1) PRIMARY KEY,
+        
+        -- Thông tin yêu cầu
+        LoaiYC NVARCHAR(50) NOT NULL,              -- 'nang_cap', 'sua_chua', 'mua_moi', 'thay_the'
+        TieuDe NVARCHAR(200) NOT NULL,             -- Tiêu đề yêu cầu
+        MoTa NVARCHAR(MAX),                        -- Mô tả chi tiết
+        LyDo NVARCHAR(500),                        -- Lý do đề xuất
+        MucDoUuTien NVARCHAR(20) DEFAULT N'Trung bình', -- 'Thấp', 'Trung bình', 'Cao', 'Khẩn cấp'
+        
+        -- Liên kết
+        MaMT INT FOREIGN KEY REFERENCES MayTinh(MaMT),           -- Máy tính liên quan (nếu có)
+        MaNV_NguoiTao INT FOREIGN KEY REFERENCES NhanVien(MaNV), -- Người tạo đề xuất
+        UserId_NguoiTao INT FOREIGN KEY REFERENCES Users(UserId), -- User tạo đề xuất
+        
+        -- Trạng thái workflow
+        -- pending: Chờ xử lý
+        -- it_processing: IT đang xử lý
+        -- waiting_approval: Chờ GĐ duyệt
+        -- approved: Đã duyệt
+        -- rejected: GĐ từ chối
+        -- it_rejected: IT từ chối
+        -- completed: Hoàn thành
+        TrangThai NVARCHAR(50) DEFAULT 'pending',
+        
+        -- Xử lý IT
+        UserId_IT INT FOREIGN KEY REFERENCES Users(UserId),      -- IT xử lý
+        GhiChuIT NVARCHAR(500),                    -- Ghi chú của IT
+        NgayIT DATETIME2,                          -- Ngày IT bắt đầu xử lý
+        
+        -- Duyệt Giám đốc
+        UserId_GD INT FOREIGN KEY REFERENCES Users(UserId),      -- GĐ duyệt
+        GhiChuGD NVARCHAR(500),                    -- Ghi chú của GĐ
+        NgayDuyet DATETIME2,                       -- Ngày duyệt
+        
+        -- Hoàn thành
+        KetQua NVARCHAR(500),                      -- Kết quả thực hiện
+        NgayHoanThanh DATETIME2,
+        
+        -- Timestamps
+        NgayTao DATETIME2 DEFAULT SYSUTCDATETIME(),
+        NgayCapNhat DATETIME2 DEFAULT SYSUTCDATETIME()
+    );
+    
+    -- Index cho tìm kiếm nhanh
+    CREATE INDEX IX_YeuCauDeXuat_TrangThai ON YeuCauDeXuat(TrangThai);
+    CREATE INDEX IX_YeuCauDeXuat_NguoiTao ON YeuCauDeXuat(UserId_NguoiTao);
+END
+GO-- =============================================
 -- INSERT DỮ LIỆU MẪU
 -- =============================================
 
