@@ -6,6 +6,9 @@ import {
   ITProcessRequest,
   ITSubmitRequest,
   ITRejectRequest,
+  ITUpdatePriorityRequest,
+  ITDirectApproveRequest,
+  ITFeedbackRequest,
   DirectorApproveRequest,
   DirectorRejectRequest,
   CompleteRequest,
@@ -206,6 +209,98 @@ export class ProposalController {
   }
 
   /**
+   * POST /api/proposals/:id/update-priority
+   * IT chỉnh mức độ ưu tiên
+   */
+  async updatePriority(req: Request, res: Response) {
+    try {
+      const id = parseInt(req.params.id)
+      const itUserId = req.userId!
+      const { mucDoUuTien, ghiChu }: ITUpdatePriorityRequest = req.body
+
+      if (!mucDoUuTien) {
+        return res.status(400).json({
+          success: false,
+          message: 'Vui lòng chọn mức độ ưu tiên',
+        })
+      }
+
+      const proposal = await proposalService.updatePriority(id, itUserId, mucDoUuTien, ghiChu)
+
+      res.json({
+        success: true,
+        message: 'Đã cập nhật mức độ ưu tiên',
+        data: proposal,
+      })
+    } catch (error: any) {
+      console.error('Error updating priority:', error)
+      res.status(400).json({
+        success: false,
+        message: error.message || 'Lỗi cập nhật mức độ ưu tiên',
+      })
+    }
+  }
+
+  /**
+   * POST /api/proposals/:id/it-approve
+   * IT duyệt trực tiếp (sửa chữa nhỏ)
+   */
+  async itDirectApprove(req: Request, res: Response) {
+    try {
+      const id = parseInt(req.params.id)
+      const itUserId = req.userId!
+      const { ghiChu }: ITDirectApproveRequest = req.body
+
+      const proposal = await proposalService.itDirectApprove(id, itUserId, ghiChu)
+
+      res.json({
+        success: true,
+        message: 'IT đã duyệt trực tiếp đề xuất',
+        data: proposal,
+      })
+    } catch (error: any) {
+      console.error('Error IT approving proposal:', error)
+      res.status(400).json({
+        success: false,
+        message: error.message || 'Lỗi duyệt đề xuất',
+      })
+    }
+  }
+
+  /**
+   * POST /api/proposals/:id/feedback
+   * IT gửi phản hồi cho User/GĐ
+   */
+  async sendFeedback(req: Request, res: Response) {
+    try {
+      const id = parseInt(req.params.id)
+      const itUserId = req.userId!
+      const { noiDung, guiCho }: ITFeedbackRequest = req.body
+
+      if (!noiDung || !guiCho) {
+        return res.status(400).json({
+          success: false,
+          message: 'Vui lòng nhập nội dung và chọn người nhận',
+        })
+      }
+
+      const proposal = await proposalService.sendFeedback(id, itUserId, noiDung, guiCho)
+
+      res.json({
+        success: true,
+        message: 'Đã gửi phản hồi',
+        data: proposal,
+      })
+    } catch (error: any) {
+      console.error('Error sending feedback:', error)
+      res.status(400).json({
+        success: false,
+        message: error.message || 'Lỗi gửi phản hồi',
+      })
+    }
+  }
+
+  /**
    * POST /api/proposals/:id/approve
    * GĐ duyệt đề xuất
    */
@@ -293,6 +388,39 @@ export class ProposalController {
       res.status(400).json({
         success: false,
         message: error.message || 'Lỗi hoàn thành đề xuất',
+      })
+    }
+  }
+
+  /**
+   * POST /api/proposals/:id/director-feedback
+   * GĐ gửi phản hồi cho User/IT
+   */
+  async directorSendFeedback(req: Request, res: Response) {
+    try {
+      const id = parseInt(req.params.id)
+      const gdUserId = req.userId!
+      const { noiDung, guiCho } = req.body
+
+      if (!noiDung?.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Vui lòng nhập nội dung phản hồi',
+        })
+      }
+
+      const proposal = await proposalService.directorSendFeedback(id, gdUserId, noiDung, guiCho)
+
+      res.json({
+        success: true,
+        message: 'Đã gửi phản hồi',
+        data: proposal,
+      })
+    } catch (error: any) {
+      console.error('Error sending director feedback:', error)
+      res.status(400).json({
+        success: false,
+        message: error.message || 'Lỗi gửi phản hồi',
       })
     }
   }

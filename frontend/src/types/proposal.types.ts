@@ -5,6 +5,7 @@ export type ProposalStatus =
   | 'pending'
   | 'it_processing'
   | 'waiting_approval'
+  | 'it_approved'
   | 'approved'
   | 'rejected'
   | 'it_rejected'
@@ -39,6 +40,8 @@ export interface Proposal {
     ghiChu: string | null
     ngayDuyet: string | null
   }
+  ghiChuIT: string | null  // Ghi chú/phản hồi IT
+  ghiChuGD: string | null  // Ghi chú/phản hồi GĐ
   ketQua: string | null
   ngayHoanThanh: string | null
   ngayTao: string

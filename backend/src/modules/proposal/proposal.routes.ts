@@ -32,6 +32,15 @@ router.post('/:id/submit', itMiddleware, proposalController.submitToDirector.bin
 // POST /api/proposals/:id/it-reject - IT từ chối
 router.post('/:id/it-reject', itMiddleware, proposalController.itReject.bind(proposalController))
 
+// POST /api/proposals/:id/update-priority - IT chỉnh mức độ ưu tiên
+router.post('/:id/update-priority', itMiddleware, proposalController.updatePriority.bind(proposalController))
+
+// POST /api/proposals/:id/it-approve - IT duyệt trực tiếp (sửa chữa nhỏ)
+router.post('/:id/it-approve', itMiddleware, proposalController.itDirectApprove.bind(proposalController))
+
+// POST /api/proposals/:id/feedback - IT gửi phản hồi
+router.post('/:id/feedback', itMiddleware, proposalController.sendFeedback.bind(proposalController))
+
 // POST /api/proposals/:id/complete - IT đánh dấu hoàn thành
 router.post('/:id/complete', itMiddleware, proposalController.complete.bind(proposalController))
 
@@ -42,5 +51,8 @@ router.post('/:id/approve', directorMiddleware, proposalController.approve.bind(
 
 // POST /api/proposals/:id/reject - GĐ từ chối
 router.post('/:id/reject', directorMiddleware, proposalController.reject.bind(proposalController))
+
+// POST /api/proposals/:id/director-feedback - GĐ gửi phản hồi cho User/IT
+router.post('/:id/director-feedback', directorMiddleware, proposalController.directorSendFeedback.bind(proposalController))
 
 export default router

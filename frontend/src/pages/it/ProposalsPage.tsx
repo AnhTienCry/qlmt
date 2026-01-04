@@ -1,15 +1,22 @@
 import { useState, useEffect } from 'react'
-import { getProposals, processProposal, submitToDirector, itRejectProposal, completeProposal } from '@/libs/proposal'
+import { getProposals, processProposal, submitToDirector, itRejectProposal, completeProposal, updatePriority, itDirectApprove, sendFeedback } from '@/libs/proposal'
 import { Proposal } from '@/types/proposal.types'
-import { PROPOSAL_STATUS, PROPOSAL_TYPES } from '@/constants'
+import { PROPOSAL_STATUS, PROPOSAL_TYPES, PRIORITY_LEVELS } from '@/constants'
+import { useToast, FeedbackTimeline, DirectorFeedbackTimeline } from '@/components/ui'
 
 export default function ITProposalsPage() {
+  const toast = useToast()
   const [proposals, setProposals] = useState<Proposal[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedProposal, setSelectedProposal] = useState<Proposal | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
   const [ghiChu, setGhiChu] = useState('')
   const [ketQua, setKetQua] = useState('')
+  const [newPriority, setNewPriority] = useState('')
+  // Feedback states
+  const [showFeedbackForm, setShowFeedbackForm] = useState(false)
+  const [feedbackContent, setFeedbackContent] = useState('')
+  const [feedbackRecipient, setFeedbackRecipient] = useState<'user' | 'director' | 'both'>('user')
 
   useEffect(() => {
     fetchProposals()
@@ -30,11 +37,13 @@ export default function ITProposalsPage() {
     setActionLoading(true)
     try {
       await processProposal(id, ghiChu)
+      toast.success('Đã bắt đầu xử lý đề xuất!')
       await fetchProposals()
       setSelectedProposal(null)
       setGhiChu('')
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error processing:', error)
+      toast.error(error.response?.data?.message || 'Lỗi xử lý đề xuất')
     } finally {
       setActionLoading(false)
     }
@@ -44,11 +53,13 @@ export default function ITProposalsPage() {
     setActionLoading(true)
     try {
       await submitToDirector(id, ghiChu)
+      toast.success('Đã chuyển đề xuất lên Giám đốc!')
       await fetchProposals()
       setSelectedProposal(null)
       setGhiChu('')
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error submitting:', error)
+      toast.error(error.response?.data?.message || 'Lỗi chuyển đề xuất')
     } finally {
       setActionLoading(false)
     }
@@ -56,17 +67,19 @@ export default function ITProposalsPage() {
 
   const handleReject = async (id: number) => {
     if (!ghiChu.trim()) {
-      alert('Vui lòng nhập lý do từ chối')
+      toast.warning('Vui lòng nhập lý do từ chối')
       return
     }
     setActionLoading(true)
     try {
       await itRejectProposal(id, ghiChu)
+      toast.success('Đã từ chối đề xuất!')
       await fetchProposals()
       setSelectedProposal(null)
       setGhiChu('')
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error rejecting:', error)
+      toast.error(error.response?.data?.message || 'Lỗi từ chối đề xuất')
     } finally {
       setActionLoading(false)
     }
@@ -74,17 +87,85 @@ export default function ITProposalsPage() {
 
   const handleComplete = async (id: number) => {
     if (!ketQua.trim()) {
-      alert('Vui lòng nhập kết quả thực hiện')
+      toast.warning('Vui lòng nhập kết quả thực hiện')
       return
     }
     setActionLoading(true)
     try {
       await completeProposal(id, ketQua)
+      toast.success('Đề xuất đã hoàn thành!')
       await fetchProposals()
       setSelectedProposal(null)
       setKetQua('')
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error completing:', error)
+      toast.error(error.response?.data?.message || 'Lỗi hoàn thành đề xuất')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  // ===== MỚI: Chỉnh mức độ ưu tiên =====
+  const handleUpdatePriority = async (id: number) => {
+    if (!newPriority) {
+      toast.warning('Vui lòng chọn mức độ ưu tiên')
+      return
+    }
+    setActionLoading(true)
+    try {
+      const response = await updatePriority(id, newPriority, ghiChu)
+      // Cập nhật selectedProposal ngay từ response
+      if (response.data) {
+        setSelectedProposal(response.data as any)
+      }
+      // Refresh danh sách
+      await fetchProposals()
+      toast.success('Đã cập nhật mức độ ưu tiên!')
+    } catch (error: any) {
+      console.error('Error updating priority:', error)
+      toast.error(error.response?.data?.message || 'Lỗi cập nhật mức độ ưu tiên')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  // ===== IT duyệt trực tiếp (sửa chữa nhỏ) =====
+  const handleItDirectApprove = async (id: number) => {
+    setActionLoading(true)
+    try {
+      await itDirectApprove(id, ghiChu)
+      toast.success('IT đã duyệt trực tiếp đề xuất!')
+      await fetchProposals()
+      setSelectedProposal(null)
+      setGhiChu('')
+    } catch (error: any) {
+      console.error('Error IT approving:', error)
+      toast.error(error.response?.data?.message || 'Lỗi duyệt đề xuất')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  // ===== IT gửi phản hồi cho User/GĐ =====
+  const handleSendFeedback = async (id: number) => {
+    if (!feedbackContent.trim()) {
+      toast.warning('Vui lòng nhập nội dung phản hồi')
+      return
+    }
+    setActionLoading(true)
+    try {
+      const response = await sendFeedback(id, feedbackContent, feedbackRecipient)
+      if (response.data) {
+        setSelectedProposal(response.data as any)
+      }
+      await fetchProposals()
+      toast.success('Đã gửi phản hồi thành công!')
+      setShowFeedbackForm(false)
+      setFeedbackContent('')
+      setFeedbackRecipient('user')
+    } catch (error: any) {
+      console.error('Error sending feedback:', error)
+      toast.error(error.response?.data?.message || 'Lỗi gửi phản hồi')
     } finally {
       setActionLoading(false)
     }
@@ -99,10 +180,27 @@ export default function ITProposalsPage() {
       green: 'bg-green-500/20 text-green-400',
       red: 'bg-red-500/20 text-red-400',
       gray: 'bg-gray-500/20 text-gray-400',
+      cyan: 'bg-cyan-500/20 text-cyan-400',
+      orange: 'bg-orange-500/20 text-orange-400',
     }
     return (
       <span className={`px-2 py-1 rounded-full text-xs ${colorClasses[statusInfo.color]}`}>
         {statusInfo.label}
+      </span>
+    )
+  }
+
+  const getPriorityBadge = (priority: string) => {
+    const priorityInfo = PRIORITY_LEVELS[priority as keyof typeof PRIORITY_LEVELS] || { label: priority, color: 'gray' }
+    const colorClasses: Record<string, string> = {
+      gray: 'bg-gray-500/20 text-gray-400',
+      yellow: 'bg-yellow-500/20 text-yellow-400',
+      orange: 'bg-orange-500/20 text-orange-400',
+      red: 'bg-red-500/20 text-red-400',
+    }
+    return (
+      <span className={`px-2 py-1 rounded-full text-xs ${colorClasses[priorityInfo.color]}`}>
+        {priorityInfo.label}
       </span>
     )
   }
@@ -130,6 +228,7 @@ export default function ITProposalsPage() {
               <th className="text-left text-gray-400 font-medium px-6 py-3">Tiêu đề</th>
               <th className="text-left text-gray-400 font-medium px-6 py-3">Người tạo</th>
               <th className="text-left text-gray-400 font-medium px-6 py-3">Loại</th>
+              <th className="text-left text-gray-400 font-medium px-6 py-3">Ưu tiên</th>
               <th className="text-left text-gray-400 font-medium px-6 py-3">Trạng thái</th>
               <th className="text-left text-gray-400 font-medium px-6 py-3">Thao tác</th>
             </tr>
@@ -143,10 +242,14 @@ export default function ITProposalsPage() {
                 <td className="px-6 py-4 text-gray-300">
                   {PROPOSAL_TYPES[proposal.loaiYC as keyof typeof PROPOSAL_TYPES]}
                 </td>
+                <td className="px-6 py-4">{getPriorityBadge(proposal.mucDoUuTien)}</td>
                 <td className="px-6 py-4">{getStatusBadge(proposal.trangThai)}</td>
                 <td className="px-6 py-4">
                   <button
-                    onClick={() => setSelectedProposal(proposal)}
+                    onClick={() => {
+                      setSelectedProposal(proposal)
+                      setNewPriority(proposal.mucDoUuTien)
+                    }}
                     className="text-cyan-400 hover:text-cyan-300"
                   >
                     Xem chi tiết
@@ -164,7 +267,7 @@ export default function ITProposalsPage() {
           <div className="bg-[#1a1a1a] border border-[#2e2e2e] rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-white">Chi tiết đề xuất #{selectedProposal.maYC}</h2>
-              <button onClick={() => setSelectedProposal(null)} className="text-gray-400 hover:text-white">
+              <button onClick={() => { setSelectedProposal(null); setGhiChu(''); setKetQua(''); setNewPriority(''); }} className="text-gray-400 hover:text-white">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -186,8 +289,8 @@ export default function ITProposalsPage() {
                   <p className="text-white">{selectedProposal.nguoiTao.username}</p>
                 </div>
                 <div>
-                  <p className="text-gray-400 text-sm">Mức độ ưu tiên</p>
-                  <p className="text-white">{selectedProposal.mucDoUuTien}</p>
+                  <p className="text-gray-400 text-sm">Mức độ ưu tiên hiện tại</p>
+                  {getPriorityBadge(selectedProposal.mucDoUuTien)}
                 </div>
               </div>
 
@@ -210,24 +313,241 @@ export default function ITProposalsPage() {
                 </div>
               )}
 
-              {/* Actions */}
+              {/* ===== TIMELINE LỊCH SỬ XỬ LÝ ===== */}
+              <div className="bg-[#2e2e2e] rounded-lg p-4">
+                <p className="text-white text-sm font-medium mb-3">📋 Lịch sử xử lý</p>
+                <div className="relative pl-6 space-y-4">
+                  {/* Dọc line */}
+                  <div className="absolute left-2 top-1 bottom-1 w-0.5 bg-[#3e3e3e]"></div>
+                  
+                  {/* Bước 1: Tạo đề xuất */}
+                  <div className="relative">
+                    <div className="absolute -left-4 w-3 h-3 rounded-full bg-green-500"></div>
+                    <p className="text-green-400 text-sm font-medium">Tạo đề xuất</p>
+                    <p className="text-gray-400 text-xs">{new Date(selectedProposal.ngayTao).toLocaleString('vi-VN')}</p>
+                    <p className="text-gray-300 text-xs">Bởi: {selectedProposal.nguoiTao.username}</p>
+                  </div>
+
+                  {/* Bước 2: IT tiếp nhận */}
+                  {selectedProposal.itXuLy.ngayXuLy && (
+                    <div className="relative">
+                      <div className="absolute -left-4 w-3 h-3 rounded-full bg-cyan-500"></div>
+                      <p className="text-cyan-400 text-sm font-medium">IT xử lý</p>
+                      <p className="text-gray-400 text-xs">{new Date(selectedProposal.itXuLy.ngayXuLy).toLocaleString('vi-VN')}</p>
+                      <p className="text-gray-300 text-xs">Bởi: {selectedProposal.itXuLy.tenNV || 'IT'}</p>
+                    </div>
+                  )}
+
+                  {/* Bước 3: GĐ duyệt */}
+                  {selectedProposal.giamDoc.ngayDuyet && (
+                    <div className="relative">
+                      <div className={`absolute -left-4 w-3 h-3 rounded-full ${
+                        selectedProposal.trangThai === 'rejected' ? 'bg-red-500' : 'bg-purple-500'
+                      }`}></div>
+                      <p className={`text-sm font-medium ${
+                        selectedProposal.trangThai === 'rejected' ? 'text-red-400' : 'text-purple-400'
+                      }`}>
+                        {selectedProposal.trangThai === 'rejected' ? 'GĐ từ chối' : 'GĐ duyệt'}
+                      </p>
+                      <p className="text-gray-400 text-xs">{new Date(selectedProposal.giamDoc.ngayDuyet).toLocaleString('vi-VN')}</p>
+                      {selectedProposal.giamDoc.ghiChu && (
+                        <p className="text-gray-300 text-xs">Ghi chú: {selectedProposal.giamDoc.ghiChu}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* IT duyệt trực tiếp */}
+                  {selectedProposal.trangThai === 'it_approved' && selectedProposal.itXuLy.ngayXuLy && (
+                    <div className="relative">
+                      <div className="absolute -left-4 w-3 h-3 rounded-full bg-green-500"></div>
+                      <p className="text-green-400 text-sm font-medium">IT duyệt trực tiếp</p>
+                      <p className="text-gray-400 text-xs">{new Date(selectedProposal.itXuLy.ngayXuLy).toLocaleString('vi-VN')}</p>
+                    </div>
+                  )}
+
+                  {/* IT từ chối */}
+                  {selectedProposal.trangThai === 'it_rejected' && (
+                    <div className="relative">
+                      <div className="absolute -left-4 w-3 h-3 rounded-full bg-red-500"></div>
+                      <p className="text-red-400 text-sm font-medium">IT từ chối</p>
+                      <p className="text-gray-400 text-xs">{selectedProposal.itXuLy.ngayXuLy ? new Date(selectedProposal.itXuLy.ngayXuLy).toLocaleString('vi-VN') : ''}</p>
+                    </div>
+                  )}
+
+                  {/* Bước 4: Hoàn thành */}
+                  {selectedProposal.ngayHoanThanh && (
+                    <div className="relative">
+                      <div className="absolute -left-4 w-3 h-3 rounded-full bg-green-500"></div>
+                      <p className="text-green-400 text-sm font-medium">Hoàn thành</p>
+                      <p className="text-gray-400 text-xs">{new Date(selectedProposal.ngayHoanThanh).toLocaleString('vi-VN')}</p>
+                      {selectedProposal.ketQua && (
+                        <p className="text-gray-300 text-xs">Kết quả: {selectedProposal.ketQua}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Trạng thái chờ */}
+                  {selectedProposal.trangThai === 'pending' && (
+                    <div className="relative">
+                      <div className="absolute -left-4 w-3 h-3 rounded-full bg-yellow-500 animate-pulse"></div>
+                      <p className="text-yellow-400 text-sm font-medium">Chờ IT xử lý...</p>
+                    </div>
+                  )}
+                  {selectedProposal.trangThai === 'it_processing' && (
+                    <div className="relative">
+                      <div className="absolute -left-4 w-3 h-3 rounded-full bg-blue-500 animate-pulse"></div>
+                      <p className="text-blue-400 text-sm font-medium">IT đang xử lý...</p>
+                    </div>
+                  )}
+                  {selectedProposal.trangThai === 'waiting_approval' && (
+                    <div className="relative">
+                      <div className="absolute -left-4 w-3 h-3 rounded-full bg-purple-500 animate-pulse"></div>
+                      <p className="text-purple-400 text-sm font-medium">Chờ GĐ duyệt...</p>
+                    </div>
+                  )}
+                  {(selectedProposal.trangThai === 'approved' || selectedProposal.trangThai === 'it_approved') && !selectedProposal.ngayHoanThanh && (
+                    <div className="relative">
+                      <div className="absolute -left-4 w-3 h-3 rounded-full bg-green-500 animate-pulse"></div>
+                      <p className="text-green-400 text-sm font-medium">Đã duyệt - Chờ hoàn thành...</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* ===== CHỈNH MỨC ĐỘ ƯU TIÊN (IT) ===== */}
+              {(selectedProposal.trangThai === 'pending' || selectedProposal.trangThai === 'it_processing') && (
+                <div className="bg-[#2e2e2e] rounded-lg p-4 space-y-3">
+                  <p className="text-cyan-400 text-sm font-medium">⚙️ Chỉnh mức độ ưu tiên</p>
+                  <div className="flex gap-2 flex-wrap">
+                    {Object.entries(PRIORITY_LEVELS).map(([key, value]) => (
+                      <button
+                        key={key}
+                        onClick={() => setNewPriority(key)}
+                        className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                          newPriority === key 
+                            ? 'bg-cyan-600 text-white' 
+                            : 'bg-[#3e3e3e] text-gray-300 hover:bg-[#4e4e4e]'
+                        }`}
+                      >
+                        {value.label}
+                      </button>
+                    ))}
+                  </div>
+                  {newPriority !== selectedProposal.mucDoUuTien && (
+                    <button
+                      onClick={() => handleUpdatePriority(selectedProposal.maYC)}
+                      disabled={actionLoading}
+                      className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 disabled:opacity-50 text-sm"
+                    >
+                      Lưu mức ưu tiên mới
+                    </button>
+                  )}
+                </div>
+              )}
+              {/* Hiện thị lịch sử phản hồi (IT xem tất cả) */}
+              <FeedbackTimeline
+                ghiChuIT={selectedProposal.ghiChuIT}
+                viewerRole="it"
+              />
+              {/* Phản hồi từ Giám đốc */}
+              <DirectorFeedbackTimeline
+                ghiChuGD={selectedProposal.ghiChuGD}
+                viewerRole="it"
+              />
+              {/* ===== GỬI PHẢN HỒI (IT) ===== */}
+              {(selectedProposal.trangThai === 'pending' || 
+                selectedProposal.trangThai === 'it_processing' || 
+                selectedProposal.trangThai === 'waiting_approval') && (
+                <div className="bg-[#2e2e2e] rounded-lg p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-orange-400 text-sm font-medium">💬 Phản hồi User/Giám đốc</p>
+                    <button
+                      onClick={() => setShowFeedbackForm(!showFeedbackForm)}
+                      className="text-sm text-cyan-400 hover:text-cyan-300"
+                    >
+                      {showFeedbackForm ? 'Ẩn' : 'Mở form'}
+                    </button>
+                  </div>
+                  
+                  {showFeedbackForm && (
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-gray-400 text-xs mb-2">Gửi cho:</p>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setFeedbackRecipient('user')}
+                            className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                              feedbackRecipient === 'user'
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-[#3e3e3e] text-gray-300 hover:bg-[#4e4e4e]'
+                            }`}
+                          >
+                            👤 User
+                          </button>
+                          <button
+                            onClick={() => setFeedbackRecipient('director')}
+                            className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                              feedbackRecipient === 'director'
+                                ? 'bg-purple-600 text-white'
+                                : 'bg-[#3e3e3e] text-gray-300 hover:bg-[#4e4e4e]'
+                            }`}
+                          >
+                            👔 Giám đốc
+                          </button>
+                          <button
+                            onClick={() => setFeedbackRecipient('both')}
+                            className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                              feedbackRecipient === 'both'
+                                ? 'bg-orange-600 text-white'
+                                : 'bg-[#3e3e3e] text-gray-300 hover:bg-[#4e4e4e]'
+                            }`}
+                          >
+                            👥 Cả hai
+                          </button>
+                        </div>
+                      </div>
+                      <textarea
+                        value={feedbackContent}
+                        onChange={(e) => setFeedbackContent(e.target.value)}
+                        placeholder="Nhập nội dung phản hồi..."
+                        className="w-full bg-[#3e3e3e] border border-[#4e4e4e] text-white rounded-lg px-4 py-3 text-sm"
+                        rows={3}
+                      />
+                      <button
+                        onClick={() => handleSendFeedback(selectedProposal.maYC)}
+                        disabled={actionLoading || !feedbackContent.trim()}
+                        className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 text-sm"
+                      >
+                        Gửi phản hồi
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Actions cho trạng thái PENDING */}
               {selectedProposal.trangThai === 'pending' && (
                 <div className="pt-4 border-t border-[#2e2e2e] space-y-4">
-                  <textarea
-                    value={ghiChu}
-                    onChange={(e) => setGhiChu(e.target.value)}
-                    placeholder="Ghi chú (tùy chọn)..."
-                    className="w-full bg-[#2e2e2e] border border-[#3e3e3e] text-white rounded-lg px-4 py-3"
-                    rows={2}
-                  />
-                  <div className="flex gap-3">
+                  <div className="flex gap-3 flex-wrap">
                     <button
                       onClick={() => handleProcess(selectedProposal.maYC)}
                       disabled={actionLoading}
                       className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 disabled:opacity-50"
                     >
-                      Bắt đầu xử lý
+                      Xác nhận & Bắt đầu xử lý
                     </button>
+                    
+                    {/* Nút IT duyệt trực tiếp - chỉ với sửa chữa */}
+                    {selectedProposal.loaiYC === 'sua_chua' && (
+                      <button
+                        onClick={() => handleItDirectApprove(selectedProposal.maYC)}
+                        disabled={actionLoading}
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                      >
+                        ✓ IT duyệt (sửa nhỏ)
+                      </button>
+                    )}
+                    
                     <button
                       onClick={() => handleReject(selectedProposal.maYC)}
                       disabled={actionLoading}
@@ -239,16 +559,10 @@ export default function ITProposalsPage() {
                 </div>
               )}
 
+              {/* Actions cho trạng thái IT_PROCESSING */}
               {selectedProposal.trangThai === 'it_processing' && (
                 <div className="pt-4 border-t border-[#2e2e2e] space-y-4">
-                  <textarea
-                    value={ghiChu}
-                    onChange={(e) => setGhiChu(e.target.value)}
-                    placeholder="Ghi chú cho Giám đốc..."
-                    className="w-full bg-[#2e2e2e] border border-[#3e3e3e] text-white rounded-lg px-4 py-3"
-                    rows={2}
-                  />
-                  <div className="flex gap-3">
+                  <div className="flex gap-3 flex-wrap">
                     <button
                       onClick={() => handleSubmitToDirector(selectedProposal.maYC)}
                       disabled={actionLoading}
@@ -256,6 +570,18 @@ export default function ITProposalsPage() {
                     >
                       Chuyển lên GĐ duyệt
                     </button>
+                    
+                    {/* Nút IT duyệt trực tiếp - chỉ với sửa chữa */}
+                    {selectedProposal.loaiYC === 'sua_chua' && (
+                      <button
+                        onClick={() => handleItDirectApprove(selectedProposal.maYC)}
+                        disabled={actionLoading}
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                      >
+                        ✓ IT duyệt (sửa nhỏ)
+                      </button>
+                    )}
+                    
                     <button
                       onClick={() => handleReject(selectedProposal.maYC)}
                       disabled={actionLoading}
@@ -267,8 +593,16 @@ export default function ITProposalsPage() {
                 </div>
               )}
 
-              {selectedProposal.trangThai === 'approved' && (
+              {/* Actions cho trạng thái APPROVED hoặc IT_APPROVED */}
+              {(selectedProposal.trangThai === 'approved' || selectedProposal.trangThai === 'it_approved') && (
                 <div className="pt-4 border-t border-[#2e2e2e] space-y-4">
+                  <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
+                    <p className="text-green-400 text-sm">
+                      {selectedProposal.trangThai === 'it_approved' 
+                        ? '✓ IT đã duyệt trực tiếp (sửa chữa nhỏ)' 
+                        : '✓ Giám đốc đã duyệt đề xuất này'}
+                    </p>
+                  </div>
                   <textarea
                     value={ketQua}
                     onChange={(e) => setKetQua(e.target.value)}
@@ -283,6 +617,30 @@ export default function ITProposalsPage() {
                   >
                     Đánh dấu hoàn thành
                   </button>
+                </div>
+              )}
+
+              {/* Hiển thị thông tin cho các trạng thái khác */}
+              {selectedProposal.trangThai === 'waiting_approval' && (
+                <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3">
+                  <p className="text-purple-400 text-sm">⏳ Đang chờ Giám đốc duyệt</p>
+                </div>
+              )}
+
+              {selectedProposal.trangThai === 'completed' && (
+                <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
+                  <p className="text-green-400 text-sm">✅ Đề xuất đã hoàn thành</p>
+                  {selectedProposal.ketQua && (
+                    <p className="text-white mt-2">Kết quả: {selectedProposal.ketQua}</p>
+                  )}
+                </div>
+              )}
+
+              {(selectedProposal.trangThai === 'rejected' || selectedProposal.trangThai === 'it_rejected') && (
+                <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+                  <p className="text-red-400 text-sm">
+                    ❌ {selectedProposal.trangThai === 'it_rejected' ? 'IT từ chối' : 'GĐ từ chối'}
+                  </p>
                 </div>
               )}
             </div>

@@ -6,7 +6,8 @@ export type ProposalStatus =
   | 'pending'           // Chờ xử lý
   | 'it_processing'     // IT đang xử lý
   | 'waiting_approval'  // Chờ GĐ duyệt
-  | 'approved'          // Đã duyệt
+  | 'it_approved'       // IT duyệt trực tiếp (sửa chữa nhỏ)
+  | 'approved'          // Đã duyệt (GĐ)
   | 'rejected'          // GĐ từ chối
   | 'it_rejected'       // IT từ chối
   | 'completed'         // Hoàn thành
@@ -66,6 +67,8 @@ export interface ProposalResponse {
     ghiChu: string | null
     ngayDuyet: string | null
   }
+  ghiChuIT: string | null  // Ghi chú/phản hồi IT để hiển thị
+  ghiChuGD: string | null  // Ghi chú/phản hồi GĐ để hiển thị
   ketQua: string | null
   ngayHoanThanh: string | null
   ngayTao: string
@@ -95,6 +98,23 @@ export interface ITSubmitRequest {
 // Request: IT từ chối
 export interface ITRejectRequest {
   ghiChu: string  // Bắt buộc phải có lý do
+}
+
+// Request: IT chỉnh mức độ ưu tiên
+export interface ITUpdatePriorityRequest {
+  mucDoUuTien: PriorityLevel
+  ghiChu?: string
+}
+
+// Request: IT duyệt trực tiếp (sửa chữa nhỏ)
+export interface ITDirectApproveRequest {
+  ghiChu?: string
+}
+
+// Request: IT gửi phản hồi
+export interface ITFeedbackRequest {
+  noiDung: string           // Nội dung phản hồi
+  guiCho: 'user' | 'director' | 'both'  // Gửi cho ai
 }
 
 // Request: GĐ duyệt

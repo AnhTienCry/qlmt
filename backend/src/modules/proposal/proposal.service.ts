@@ -40,6 +40,8 @@ export class ProposalService {
         ghiChu: record.GhiChuGD,
         ngayDuyet: record.NgayDuyet ? new Date(record.NgayDuyet).toISOString() : null,
       },
+      ghiChuIT: record.GhiChuIT,  // Thêm ghi chú IT riêng để hiển thị
+      ghiChuGD: record.GhiChuGD,  // Thêm ghi chú GĐ riêng để hiển thị
       ketQua: record.KetQua,
       ngayHoanThanh: record.NgayHoanThanh ? new Date(record.NgayHoanThanh).toISOString() : null,
       ngayTao: new Date(record.NgayTao).toISOString(),
@@ -195,15 +197,19 @@ export class ProposalService {
       throw new Error('Đề xuất không ở trạng thái chờ xử lý')
     }
 
+    // Giữ lại feedback cũ, chỉ thêm ghi chú mới nếu có
+    const currentNote = proposal.ghiChuIT || ''
+    const newNote = ghiChu ? (currentNote ? `${currentNote}\n${ghiChu}` : ghiChu) : currentNote
+    
     await db.query(
       `UPDATE YeuCauDeXuat SET 
         TrangThai = 'it_processing',
         UserId_IT = @itUserId,
-        GhiChuIT = @ghiChu,
+        GhiChuIT = @newNote,
         NgayIT = SYSUTCDATETIME(),
         NgayCapNhat = SYSUTCDATETIME()
       WHERE MaYC = @id`,
-      { id, itUserId, ghiChu: ghiChu || null }
+      { id, itUserId, newNote: newNote || null }
     )
 
     console.log(`✅ IT started processing proposal #${id}`)
@@ -222,13 +228,17 @@ export class ProposalService {
       throw new Error('Đề xuất không ở trạng thái IT đang xử lý')
     }
 
+    // Giữ lại feedback cũ, chỉ thêm ghi chú mới nếu có
+    const currentNote = proposal.ghiChuIT || ''
+    const newNote = ghiChu ? (currentNote ? `${currentNote}\n${ghiChu}` : ghiChu) : currentNote
+    
     await db.query(
       `UPDATE YeuCauDeXuat SET 
         TrangThai = 'waiting_approval',
-        GhiChuIT = @ghiChu,
+        GhiChuIT = @newNote,
         NgayCapNhat = SYSUTCDATETIME()
       WHERE MaYC = @id`,
-      { id, ghiChu: ghiChu || proposal.itXuLy.ghiChu }
+      { id, newNote: newNote || null }
     )
 
     console.log(`✅ Proposal #${id} submitted to director`)
@@ -247,15 +257,19 @@ export class ProposalService {
       throw new Error('Đề xuất không thể từ chối ở trạng thái này')
     }
 
+    // Giữ lại feedback cũ, thêm lý do từ chối
+    const currentNote = proposal.ghiChuIT || ''
+    const newNote = currentNote ? `${currentNote}\n[Lý do từ chối]: ${ghiChu}` : `[Lý do từ chối]: ${ghiChu}`
+    
     await db.query(
       `UPDATE YeuCauDeXuat SET 
         TrangThai = 'it_rejected',
         UserId_IT = @itUserId,
-        GhiChuIT = @ghiChu,
+        GhiChuIT = @newNote,
         NgayIT = SYSUTCDATETIME(),
         NgayCapNhat = SYSUTCDATETIME()
       WHERE MaYC = @id`,
-      { id, itUserId, ghiChu }
+      { id, itUserId, newNote }
     )
 
     console.log(`❌ IT rejected proposal #${id}`)
@@ -274,15 +288,25 @@ export class ProposalService {
       throw new Error('Đề xuất không ở trạng thái chờ duyệt')
     }
 
+    // Giữ lại phản hồi cũ (nếu có), thêm ghi chú duyệt vào cuối
+    const currentNote = proposal.giamDoc.ghiChu || ''
+    let newNote = currentNote
+    if (ghiChu) {
+      const now = new Date()
+      const timestamp = now.toISOString().slice(0, 16).replace('T', ' ')
+      const approvalNote = `[${timestamp}][GĐ→User+IT]: [Đã duyệt] ${ghiChu}`
+      newNote = currentNote ? `${currentNote}\n${approvalNote}` : approvalNote
+    }
+
     await db.query(
       `UPDATE YeuCauDeXuat SET 
         TrangThai = 'approved',
         UserId_GD = @gdUserId,
-        GhiChuGD = @ghiChu,
+        GhiChuGD = @newNote,
         NgayDuyet = SYSUTCDATETIME(),
         NgayCapNhat = SYSUTCDATETIME()
       WHERE MaYC = @id`,
-      { id, gdUserId, ghiChu: ghiChu || null }
+      { id, gdUserId, newNote: newNote || null }
     )
 
     console.log(`✅ Director approved proposal #${id}`)
@@ -301,15 +325,22 @@ export class ProposalService {
       throw new Error('Đề xuất không ở trạng thái chờ duyệt')
     }
 
+    // Giữ lại phản hồi cũ (nếu có), thêm lý do từ chối vào cuối
+    const currentNote = proposal.giamDoc.ghiChu || ''
+    const now = new Date()
+    const timestamp = now.toISOString().slice(0, 16).replace('T', ' ')
+    const rejectNote = `[${timestamp}][GĐ→User+IT]: [Từ chối] ${ghiChu}`
+    const newNote = currentNote ? `${currentNote}\n${rejectNote}` : rejectNote
+
     await db.query(
       `UPDATE YeuCauDeXuat SET 
         TrangThai = 'rejected',
         UserId_GD = @gdUserId,
-        GhiChuGD = @ghiChu,
+        GhiChuGD = @newNote,
         NgayDuyet = SYSUTCDATETIME(),
         NgayCapNhat = SYSUTCDATETIME()
       WHERE MaYC = @id`,
-      { id, gdUserId, ghiChu }
+      { id, gdUserId, newNote }
     )
 
     console.log(`❌ Director rejected proposal #${id}`)
@@ -324,7 +355,8 @@ export class ProposalService {
     if (!proposal) {
       throw new Error('Không tìm thấy đề xuất')
     }
-    if (proposal.trangThai !== 'approved') {
+    // Cho phép complete cả 'approved' và 'it_approved'
+    if (proposal.trangThai !== 'approved' && proposal.trangThai !== 'it_approved') {
       throw new Error('Đề xuất chưa được duyệt')
     }
 
@@ -340,6 +372,158 @@ export class ProposalService {
 
     console.log(`✅ Proposal #${id} completed`)
     return (await this.getProposalById(id))!
+  }
+
+  /**
+   * IT chỉnh mức độ ưu tiên
+   */
+  async updatePriority(id: number, itUserId: number, mucDoUuTien: string, ghiChu?: string): Promise<ProposalResponse> {
+    const proposal = await this.getProposalById(id)
+    if (!proposal) {
+      throw new Error('Không tìm thấy đề xuất')
+    }
+    // Chỉ cho phép chỉnh priority khi đang pending hoặc it_processing
+    if (proposal.trangThai !== 'pending' && proposal.trangThai !== 'it_processing') {
+      throw new Error('Không thể chỉnh mức ưu tiên ở trạng thái này')
+    }
+
+    const validPriorities = ['Thấp', 'Trung bình', 'Cao', 'Khẩn cấp']
+    if (!validPriorities.includes(mucDoUuTien)) {
+      throw new Error('Mức độ ưu tiên không hợp lệ')
+    }
+
+    await db.query(
+      `UPDATE YeuCauDeXuat SET 
+        MucDoUuTien = @mucDoUuTien,
+        UserId_IT = @itUserId,
+        GhiChuIT = CASE WHEN @ghiChu IS NOT NULL THEN @ghiChu ELSE GhiChuIT END,
+        NgayIT = SYSUTCDATETIME(),
+        NgayCapNhat = SYSUTCDATETIME()
+      WHERE MaYC = @id`,
+      { id, itUserId, mucDoUuTien, ghiChu: ghiChu || null }
+    )
+
+    console.log(`✅ IT updated priority of proposal #${id} to ${mucDoUuTien}`)
+    return (await this.getProposalById(id))!
+  }
+
+  /**
+   * IT duyệt trực tiếp (sửa chữa nhỏ - không qua GĐ)
+   */
+  async itDirectApprove(id: number, itUserId: number, ghiChu?: string): Promise<ProposalResponse> {
+    const proposal = await this.getProposalById(id)
+    if (!proposal) {
+      throw new Error('Không tìm thấy đề xuất')
+    }
+    // Chỉ cho phép duyệt trực tiếp khi pending hoặc it_processing
+    if (proposal.trangThai !== 'pending' && proposal.trangThai !== 'it_processing') {
+      throw new Error('Không thể duyệt trực tiếp ở trạng thái này')
+    }
+
+    // Chỉ cho phép duyệt trực tiếp loại sửa chữa
+    if (proposal.loaiYC !== 'sua_chua') {
+      throw new Error('Chỉ có thể duyệt trực tiếp đề xuất loại sửa chữa')
+    }
+
+    // Giữ lại feedback cũ
+    const currentNote = proposal.ghiChuIT || ''
+    const approveNote = ghiChu || 'IT duyệt trực tiếp - sửa chữa nhỏ'
+    const newNote = currentNote ? `${currentNote}\n[IT duyệt]: ${approveNote}` : `[IT duyệt]: ${approveNote}`
+    
+    await db.query(
+      `UPDATE YeuCauDeXuat SET 
+        TrangThai = 'it_approved',
+        UserId_IT = @itUserId,
+        GhiChuIT = @newNote,
+        NgayIT = SYSUTCDATETIME(),
+        NgayCapNhat = SYSUTCDATETIME()
+      WHERE MaYC = @id`,
+      { id, itUserId, newNote }
+    )
+
+    console.log(`✅ IT directly approved proposal #${id}`)
+    return (await this.getProposalById(id))!
+  }
+
+  /**
+   * IT gửi phản hồi cho User/GĐ
+   */
+  async sendFeedback(
+    id: number, 
+    itUserId: number, 
+    noiDung: string, 
+    guiCho: 'user' | 'director' | 'both'
+  ): Promise<ProposalResponse> {
+    const proposal = await this.getProposalById(id)
+    if (!proposal) {
+      throw new Error('Không tìm thấy đề xuất')
+    }
+
+    // Format mới với timestamp: [2026-01-04 10:30][IT→User]: nội dung
+    const now = new Date()
+    const timestamp = now.toISOString().slice(0, 16).replace('T', ' ')
+    const recipient = guiCho === 'user' ? 'User' : guiCho === 'director' ? 'GĐ' : 'User+GĐ'
+    const feedback = `[${timestamp}][IT→${recipient}]: ${noiDung}`
+    
+    const currentNote = proposal.itXuLy.ghiChu || ''
+    const newNote = currentNote ? `${currentNote}\n${feedback}` : feedback
+
+    console.log('📤 Saving feedback:', { id, feedback, newNote })
+
+    await db.query(
+      `UPDATE YeuCauDeXuat SET 
+        UserId_IT = @itUserId,
+        GhiChuIT = @newNote,
+        NgayIT = SYSUTCDATETIME(),
+        NgayCapNhat = SYSUTCDATETIME()
+      WHERE MaYC = @id`,
+      { id, itUserId, newNote }
+    )
+
+    console.log(`📝 IT sent feedback for proposal #${id} to ${guiCho}`)
+    const result = await this.getProposalById(id)
+    console.log('📥 Updated proposal ghiChuIT:', result?.ghiChuIT)
+    return result!
+  }
+
+  /**
+   * GĐ gửi phản hồi cho User/IT
+   */
+  async directorSendFeedback(
+    id: number, 
+    gdUserId: number, 
+    noiDung: string, 
+    guiCho: 'user' | 'it' | 'both'
+  ): Promise<ProposalResponse> {
+    const proposal = await this.getProposalById(id)
+    if (!proposal) {
+      throw new Error('Không tìm thấy đề xuất')
+    }
+
+    // Format: [2026-01-04 10:30][GĐ→User]: nội dung
+    const now = new Date()
+    const timestamp = now.toISOString().slice(0, 16).replace('T', ' ')
+    const recipient = guiCho === 'user' ? 'User' : guiCho === 'it' ? 'IT' : 'User+IT'
+    const feedback = `[${timestamp}][GĐ→${recipient}]: ${noiDung}`
+    
+    // Lưu vào GhiChuGD
+    const currentNote = proposal.giamDoc.ghiChu || ''
+    const newNote = currentNote ? `${currentNote}\n${feedback}` : feedback
+
+    console.log('📤 Director saving feedback:', { id, feedback, newNote })
+
+    await db.query(
+      `UPDATE YeuCauDeXuat SET 
+        GhiChuGD = @newNote,
+        NgayCapNhat = SYSUTCDATETIME()
+      WHERE MaYC = @id`,
+      { id, newNote }
+    )
+
+    console.log(`📝 Director sent feedback for proposal #${id} to ${guiCho}`)
+    const result = await this.getProposalById(id)
+    console.log('📥 Updated proposal ghiChuGD:', result?.ghiChuGD)
+    return result!
   }
 
   /**

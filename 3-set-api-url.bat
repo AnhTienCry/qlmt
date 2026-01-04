@@ -3,17 +3,19 @@ title Set API URL
 cd /d %~dp0
 
 echo ========================================
-echo  SET BACKEND URL FOR FRONTEND
+echo  SET BACKEND URL FOR PRODUCTION
 echo ========================================
 echo.
-echo Paste URL backend (vd: https://xxx-xxx.trycloudflare.com)
+echo Paste URL backend tunnel (vd: https://xxx-xxx.trycloudflare.com)
 echo.
 set /p BACKEND_URL=URL: 
 
-echo VITE_API_URL=%BACKEND_URL%/api> frontend\.env.local
+:: Update .env.production
+echo VITE_API_URL=%BACKEND_URL%/api> frontend\.env.production
 
 echo.
 echo ========================================
-echo  DONE! Now run 4-start-frontend-tunnel.bat
+echo  DONE! Updated .env.production
+echo  Now run 4-start-frontend-tunnel.bat
 echo ========================================
 pause

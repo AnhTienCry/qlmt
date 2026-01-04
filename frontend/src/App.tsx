@@ -1,6 +1,7 @@
 import { Routes, Route } from 'react-router-dom'
 import { DashboardLayout, UserLayout, ITLayout, DirectorLayout } from '@/components/layout'
 import { ProtectedRoute } from '@/components/auth'
+import { ToastProvider } from '@/components/ui'
 import HomePage from '@/pages/HomePage'
 import LoginPage from '@/pages/LoginPage'
 import RegisterPage from '@/pages/RegisterPage'
@@ -37,6 +38,7 @@ import DirectorProposalsPage from '@/pages/director/ProposalsPage'
 
 function App() {
   return (
+    <ToastProvider>
     <Routes>
       {/* Homepage - Landing page */}
       <Route path="/" element={<HomePage />} />
@@ -121,6 +123,7 @@ function App() {
       {/* 404 */}
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
+    </ToastProvider>
   )
 }
 

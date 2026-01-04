@@ -4,7 +4,7 @@ import { ROUTES } from '@/constants'
 import { useAuth } from '@/hooks/useAuth'
 
 const HomePage = () => {
-  const { isAuthenticated, user } = useAuth()
+  const { isAuthenticated, user, loading } = useAuth()
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem('theme')
     return saved ? saved === 'dark' : true
@@ -128,7 +128,9 @@ const HomePage = () => {
               </button>
 
               {/* Auth Buttons */}
-              {isAuthenticated ? (
+              {loading ? (
+                <div className="w-24 h-10 bg-gray-700 animate-pulse rounded-lg"></div>
+              ) : isAuthenticated ? (
                 <Link
                   to={getDashboardByRole(user?.role || 'user')}
                   className="px-5 py-2 bg-gradient-to-r from-blue-500 to-blue-700 hover:from-blue-600 hover:to-blue-800 text-white font-medium rounded-lg transition-all shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40"
@@ -177,12 +179,16 @@ const HomePage = () => {
               Giải pháp quản lý tài sản IT toàn diện cho doanh nghiệp. Theo dõi nhập xuất, điều chuyển thiết bị và tạo báo cáo dễ dàng.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Link
-                to={isAuthenticated ? getDashboardByRole(user?.role || 'user') : ROUTES.LOGIN}
-                className="px-8 py-3 bg-gradient-to-r from-blue-500 to-blue-700 hover:from-blue-600 hover:to-blue-800 text-white font-semibold rounded-xl transition-all shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:scale-105"
-              >
-                {isAuthenticated ? 'Vào hệ thống' : 'Bắt đầu ngay'}
-              </Link>
+              {loading ? (
+                <div className="w-36 h-12 bg-gray-700 animate-pulse rounded-xl"></div>
+              ) : (
+                <Link
+                  to={isAuthenticated ? getDashboardByRole(user?.role || 'user') : ROUTES.LOGIN}
+                  className="px-8 py-3 bg-gradient-to-r from-blue-500 to-blue-700 hover:from-blue-600 hover:to-blue-800 text-white font-semibold rounded-xl transition-all shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:scale-105"
+                >
+                  {isAuthenticated ? 'Vào hệ thống' : 'Bắt đầu ngay'}
+                </Link>
+              )}
               <a
                 href="#features"
                 className={`px-8 py-3 font-semibold rounded-xl transition-all border ${darkMode ? 'border-[#2e2e2e] hover:bg-[#1e1e1e] text-gray-300' : 'border-gray-300 hover:bg-gray-100 text-gray-700'}`}

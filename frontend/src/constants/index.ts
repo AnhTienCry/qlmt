@@ -46,15 +46,45 @@ export const ROLES = {
   USER: 'user',
 }
 
-// Proposal status labels
+// Proposal status labels (trạng thái chung - legacy)
 export const PROPOSAL_STATUS = {
   pending: { label: 'Chờ xử lý', color: 'yellow' },
   it_processing: { label: 'IT đang xử lý', color: 'blue' },
   waiting_approval: { label: 'Chờ GĐ duyệt', color: 'purple' },
-  approved: { label: 'Đã duyệt', color: 'green' },
+  it_approved: { label: 'IT duyệt', color: 'cyan' },
+  approved: { label: 'GĐ duyệt', color: 'green' },
   rejected: { label: 'GĐ từ chối', color: 'red' },
   it_rejected: { label: 'IT từ chối', color: 'red' },
   completed: { label: 'Hoàn thành', color: 'green' },
+}
+
+// Trạng thái IT riêng (hiển thị cho User)
+export const IT_STATUS = {
+  pending: { label: 'Chờ tiếp nhận', color: 'yellow' },
+  received: { label: 'Đã tiếp nhận', color: 'blue' },
+  processing: { label: 'Đang xử lý', color: 'blue' },
+  confirmed: { label: 'Đã xác nhận', color: 'cyan' },
+  approved: { label: 'IT đã duyệt', color: 'green' },
+  forwarded: { label: 'Chuyển GĐ', color: 'purple' },
+  rejected: { label: 'IT từ chối', color: 'red' },
+  completed: { label: 'Hoàn thành', color: 'green' },
+}
+
+// Trạng thái GĐ riêng (hiển thị cho User)
+export const GD_STATUS = {
+  none: { label: '-', color: 'gray' },  // IT duyệt nhỏ, không cần GĐ
+  pending: { label: 'Chờ duyệt', color: 'yellow' },
+  processing: { label: 'Đang xem xét', color: 'blue' },
+  approved: { label: 'Đã duyệt', color: 'green' },
+  rejected: { label: 'Từ chối', color: 'red' },
+}
+
+// Priority levels
+export const PRIORITY_LEVELS = {
+  'Thấp': { label: 'Thấp', color: 'gray' },
+  'Trung bình': { label: 'Trung bình', color: 'yellow' },
+  'Cao': { label: 'Cao', color: 'orange' },
+  'Khẩn cấp': { label: 'Khẩn cấp', color: 'red' },
 }
 
 // Proposal type labels
