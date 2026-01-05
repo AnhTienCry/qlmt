@@ -40,7 +40,32 @@ export default function DirectorFeedbackTimeline({ ghiChuGD, viewerRole, classNa
     return false
   })
 
-  if (filteredLines.length === 0) return null
+  // Loại bỏ dòng phản hồi thường nếu đã có dòng [Đã duyệt] hoặc [Từ chối] cùng nội dung
+  const uniqueLines = filteredLines.filter((line, idx) => {
+    // Lấy nội dung sau [GĐ→...]:
+    const match = line.match(/\[GĐ→[^\]]+\]:\s*(.*)/)
+    if (!match) return true
+    
+    let content = match[1].trim()
+    // Nếu đây là dòng thường (không có [Đã duyệt]/[Từ chối])
+    if (!content.startsWith('[Đã duyệt]') && !content.startsWith('[Từ chối]')) {
+      // Kiểm tra xem có dòng nào khác có cùng nội dung với [Đã duyệt] hoặc [Từ chối] không
+      const hasSameContentWithAction = filteredLines.some((other, otherIdx) => {
+        if (otherIdx === idx) return false
+        const otherMatch = other.match(/\[GĐ→[^\]]+\]:\s*\[(Đã duyệt|Từ chối)\]\s*(.*)/)
+        if (!otherMatch) return false
+        // So sánh nội dung (loại bỏ dấu cách thừa, lowercase)
+        const otherContent = otherMatch[2].trim().toLowerCase().replace(/\s+/g, ' ')
+        const thisContent = content.toLowerCase().replace(/\s+/g, ' ')
+        return thisContent === otherContent
+      })
+      // Nếu có, ẩn dòng này (vì dòng [Đã duyệt]/[Từ chối] đã hiển thị)
+      if (hasSameContentWithAction) return false
+    }
+    return true
+  })
+
+  if (uniqueLines.length === 0) return null
 
   // Parse và hiển thị từng dòng
   const parseAndDisplay = (line: string, idx: number) => {
@@ -112,10 +137,10 @@ export default function DirectorFeedbackTimeline({ ghiChuGD, viewerRole, classNa
   return (
     <div className={`bg-purple-500/10 border border-purple-500/30 rounded-lg p-4 ${className}`}>
       <p className="text-purple-400 text-sm font-medium mb-3">
-        💬 Phản hồi từ Giám đốc ({filteredLines.length})
+        💬 Phản hồi từ Giám đốc ({uniqueLines.length})
       </p>
       <div className="space-y-3">
-        {filteredLines.map((line, idx) => parseAndDisplay(line, idx))}
+        {uniqueLines.map((line, idx) => parseAndDisplay(line, idx))}
       </div>
     </div>
   )

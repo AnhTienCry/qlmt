@@ -15,3 +15,5 @@ export { AddHangHoaModal, AddKhoModal, AddNCCModal, AddNhanVienModal } from './A
 export { ToastProvider, useToast } from './Toast'
 export { default as FeedbackTimeline } from './FeedbackTimeline'
 export { default as DirectorFeedbackTimeline } from './DirectorFeedbackTimeline'
+export { default as UserFeedbackTimeline } from './UserFeedbackTimeline'
+export { default as UserSentFeedbackTimeline } from './UserSentFeedbackTimeline'

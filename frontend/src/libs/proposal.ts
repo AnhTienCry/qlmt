@@ -111,3 +111,9 @@ export const directorSendFeedback = async (id: number, noiDung: string, guiCho: 
   const response = await axiosInstance.post(`/proposals/${id}/director-feedback`, { noiDung, guiCho })
   return response.data
 }
+
+// User: Gửi phản hồi cho IT/GĐ
+export const userSendFeedback = async (id: number, noiDung: string, guiCho: 'it' | 'director' | 'both'): Promise<ProposalResponse> => {
+  const response = await axiosInstance.post(`/proposals/${id}/user-feedback`, { noiDung, guiCho })
+  return response.data
+}

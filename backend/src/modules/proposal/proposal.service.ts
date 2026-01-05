@@ -224,8 +224,9 @@ export class ProposalService {
     if (!proposal) {
       throw new Error('Không tìm thấy đề xuất')
     }
-    if (proposal.trangThai !== 'it_processing') {
-      throw new Error('Đề xuất không ở trạng thái IT đang xử lý')
+    // Cho phép chuyển lên GĐ từ it_processing hoặc it_approved (thay đổi quyết định)
+    if (proposal.trangThai !== 'it_processing' && proposal.trangThai !== 'it_approved') {
+      throw new Error('Đề xuất không ở trạng thái có thể chuyển lên GĐ')
     }
 
     // Giữ lại feedback cũ, chỉ thêm ghi chú mới nếu có
@@ -253,7 +254,8 @@ export class ProposalService {
     if (!proposal) {
       throw new Error('Không tìm thấy đề xuất')
     }
-    if (proposal.trangThai !== 'pending' && proposal.trangThai !== 'it_processing') {
+    // Cho phép từ chối từ pending, it_processing, hoặc it_approved (thay đổi quyết định)
+    if (proposal.trangThai !== 'pending' && proposal.trangThai !== 'it_processing' && proposal.trangThai !== 'it_approved') {
       throw new Error('Đề xuất không thể từ chối ở trạng thái này')
     }
 
@@ -408,26 +410,21 @@ export class ProposalService {
   }
 
   /**
-   * IT duyệt trực tiếp (sửa chữa nhỏ - không qua GĐ)
+   * IT duyệt trực tiếp (không qua GĐ)
    */
   async itDirectApprove(id: number, itUserId: number, ghiChu?: string): Promise<ProposalResponse> {
     const proposal = await this.getProposalById(id)
     if (!proposal) {
       throw new Error('Không tìm thấy đề xuất')
     }
-    // Chỉ cho phép duyệt trực tiếp khi pending hoặc it_processing
-    if (proposal.trangThai !== 'pending' && proposal.trangThai !== 'it_processing') {
+    // Cho phép duyệt trực tiếp khi pending, it_processing, hoặc it_approved (giữ nguyên/thay đổi)
+    if (proposal.trangThai !== 'pending' && proposal.trangThai !== 'it_processing' && proposal.trangThai !== 'it_approved') {
       throw new Error('Không thể duyệt trực tiếp ở trạng thái này')
-    }
-
-    // Chỉ cho phép duyệt trực tiếp loại sửa chữa
-    if (proposal.loaiYC !== 'sua_chua') {
-      throw new Error('Chỉ có thể duyệt trực tiếp đề xuất loại sửa chữa')
     }
 
     // Giữ lại feedback cũ
     const currentNote = proposal.ghiChuIT || ''
-    const approveNote = ghiChu || 'IT duyệt trực tiếp - sửa chữa nhỏ'
+    const approveNote = ghiChu || 'IT duyệt trực tiếp'
     const newNote = currentNote ? `${currentNote}\n[IT duyệt]: ${approveNote}` : `[IT duyệt]: ${approveNote}`
     
     await db.query(
@@ -524,6 +521,60 @@ export class ProposalService {
     const result = await this.getProposalById(id)
     console.log('📥 Updated proposal ghiChuGD:', result?.ghiChuGD)
     return result!
+  }
+
+  /**
+   * User gửi phản hồi cho IT/GĐ
+   */
+  async userSendFeedback(
+    id: number, 
+    userId: number, 
+    noiDung: string, 
+    guiCho: 'it' | 'director' | 'both'
+  ): Promise<ProposalResponse> {
+    const proposal = await this.getProposalById(id)
+    if (!proposal) {
+      throw new Error('Không tìm thấy đề xuất')
+    }
+
+    // Kiểm tra quyền - chỉ người tạo đề xuất mới được phản hồi
+    if (proposal.nguoiTao.userId !== userId) {
+      throw new Error('Bạn không có quyền phản hồi đề xuất này')
+    }
+
+    // Format: [2026-01-04 10:30][User→IT]: nội dung
+    const now = new Date()
+    const timestamp = now.toISOString().slice(0, 16).replace('T', ' ')
+    const recipient = guiCho === 'it' ? 'IT' : guiCho === 'director' ? 'GĐ' : 'IT+GĐ'
+    const feedback = `[${timestamp}][User→${recipient}]: ${noiDung}`
+    
+    // Lưu vào GhiChuUser (field mới) - hoặc có thể dùng chung một field
+    // Tạm thời lưu vào field riêng trong Mô tả (hoặc tạo field mới)
+    // Để đơn giản, tôi sẽ lưu vào một column riêng nếu có hoặc append vào GhiChuIT với marker đặc biệt
+    
+    // Lưu phản hồi User vào GhiChuIT với prefix [User→...]
+    const currentNoteIT = proposal.itXuLy.ghiChu || ''
+    const newNoteIT = currentNoteIT ? `${currentNoteIT}\n${feedback}` : feedback
+
+    // Nếu gửi cho GĐ hoặc cả hai, cũng lưu vào GhiChuGD
+    let newNoteGD = proposal.giamDoc.ghiChu || ''
+    if (guiCho === 'director' || guiCho === 'both') {
+      newNoteGD = newNoteGD ? `${newNoteGD}\n${feedback}` : feedback
+    }
+
+    console.log('📤 User sending feedback:', { id, feedback, guiCho })
+
+    await db.query(
+      `UPDATE YeuCauDeXuat SET 
+        GhiChuIT = @newNoteIT,
+        GhiChuGD = @newNoteGD,
+        NgayCapNhat = SYSUTCDATETIME()
+      WHERE MaYC = @id`,
+      { id, newNoteIT, newNoteGD }
+    )
+
+    console.log(`📝 User sent feedback for proposal #${id} to ${guiCho}`)
+    return (await this.getProposalById(id))!
   }
 
   /**

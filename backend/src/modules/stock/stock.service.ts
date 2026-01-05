@@ -35,9 +35,13 @@ class StockService {
     let query = `
       SELECT nh.*, 
              hh.TenHang,
+             hh.MaTS as MaHangText,
              kh.TenKho,
+             kh.MaKhoText,
              ncc.TenNCC,
-             nv.TenNV as TenNguoiNhan
+             ncc.MaSoThue as MaNCCText,
+             nv.TenNV as TenNguoiNhan,
+             nv.MaNVText as MaNVNhan
       FROM NhapHang nh
       LEFT JOIN HangHoa hh ON nh.MaHang = hh.MaHang
       LEFT JOIN Kho kh ON nh.MaKho = kh.MaKho
@@ -65,9 +69,13 @@ class StockService {
     const result = await db.query<NhapHangWithDetails>(`
       SELECT nh.*, 
              hh.TenHang,
+             hh.MaTS as MaHangText,
              kh.TenKho,
+             kh.MaKhoText,
              ncc.TenNCC,
-             nv.TenNV as TenNguoiNhan
+             ncc.MaSoThue as MaNCCText,
+             nv.TenNV as TenNguoiNhan,
+             nv.MaNVText as MaNVNhan
       FROM NhapHang nh
       LEFT JOIN HangHoa hh ON nh.MaHang = hh.MaHang
       LEFT JOIN Kho kh ON nh.MaKho = kh.MaKho
@@ -164,9 +172,13 @@ class StockService {
     let query = `
       SELECT xh.*, 
              hh.TenHang,
+             hh.MaTS as MaHangText,
              kh.TenKho,
+             kh.MaKhoText,
              nvGiao.TenNV as TenNguoiGiao,
-             nvNhan.TenNV as TenNguoiNhan
+             nvGiao.MaNVText as MaNVGiao,
+             nvNhan.TenNV as TenNguoiNhan,
+             nvNhan.MaNVText as MaNVNhan
       FROM XuatHang xh
       LEFT JOIN HangHoa hh ON xh.MaHang = hh.MaHang
       LEFT JOIN Kho kh ON xh.MaKho = kh.MaKho
@@ -194,9 +206,13 @@ class StockService {
     const result = await db.query<XuatHangWithDetails>(`
       SELECT xh.*, 
              hh.TenHang,
+             hh.MaTS as MaHangText,
              kh.TenKho,
+             kh.MaKhoText,
              nvGiao.TenNV as TenNguoiGiao,
-             nvNhan.TenNV as TenNguoiNhan
+             nvGiao.MaNVText as MaNVGiao,
+             nvNhan.TenNV as TenNguoiNhan,
+             nvNhan.MaNVText as MaNVNhan
       FROM XuatHang xh
       LEFT JOIN HangHoa hh ON xh.MaHang = hh.MaHang
       LEFT JOIN Kho kh ON xh.MaKho = kh.MaKho
@@ -364,6 +380,204 @@ class StockService {
       WHERE xh.NguoiNhan IS NOT NULL
       ORDER BY hh.TenHang
     `)
+    return result.recordset
+  }
+
+  /**
+   * Lấy danh sách thiết bị được cấp cho user (dựa trên MaNV từ Users)
+   */
+  async getThietBiCuaUser(userId: number): Promise<any[]> {
+    // Lấy MaNV từ Users
+    const userResult = await db.query<{ MaNV: number | null }>(
+      'SELECT MaNV FROM Users WHERE UserId = @userId',
+      { userId }
+    )
+    const maNV = userResult.recordset[0]?.MaNV
+
+    if (!maNV) {
+      return [] // User chưa được liên kết với nhân viên
+    }
+
+    // Lấy danh sách thiết bị xuất cho nhân viên này
+    const result = await db.query<any>(`
+      SELECT 
+        xh.MaXuat,
+        xh.SoPhieuX,
+        xh.NgayXuat,
+        xh.MaHang,
+        hh.MaTS as MaHangText,
+        hh.TenHang,
+        hh.LoaiHang,
+        kh.TenKho as TuKho,
+        nvGiao.TenNV as NguoiGiao,
+        xh.DienGiai
+      FROM XuatHang xh
+      INNER JOIN HangHoa hh ON xh.MaHang = hh.MaHang
+      LEFT JOIN Kho kh ON xh.MaKho = kh.MaKho
+      LEFT JOIN NhanVien nvGiao ON xh.NguoiGiao = nvGiao.MaNV
+      WHERE xh.NguoiNhan = @maNV
+      ORDER BY xh.NgayXuat DESC
+    `, { maNV })
+
+    return result.recordset
+  }
+
+  // ==================== BÁO CÁO MỞ RỘNG ====================
+
+  /**
+   * Báo cáo nhập kho theo filter
+   * Filter: NguoiGiao (NCC hoặc NV), Kho, từ ngày - đến ngày
+   */
+  async getBaoCaoNhapKho(tuNgay: string, denNgay: string, maKho?: number, nguoiGiao?: number): Promise<any[]> {
+    let query = `
+      SELECT 
+        nh.SoPhieuN, nh.NgayNhap, nh.SoLuong, nh.DonGia,
+        hh.MaTS as MaHang, hh.TenHang,
+        kh.MaKhoText, kh.TenKho,
+        ncc.MaSoThue as MaNCC, ncc.TenNCC,
+        nv.MaNVText, nv.TenNV as TenNguoiNhan,
+        nh.DienGiai
+      FROM NhapHang nh
+      LEFT JOIN HangHoa hh ON nh.MaHang = hh.MaHang
+      LEFT JOIN Kho kh ON nh.MaKho = kh.MaKho
+      LEFT JOIN NCC ncc ON nh.NguoiGiao = ncc.MaNCC
+      LEFT JOIN NhanVien nv ON nh.NguoiNhan = nv.MaNV
+      WHERE nh.NgayNhap >= @tuNgay AND nh.NgayNhap <= @denNgay
+    `
+    const params: Record<string, any> = { tuNgay, denNgay }
+
+    if (maKho) {
+      query += ' AND nh.MaKho = @maKho'
+      params.maKho = maKho
+    }
+    if (nguoiGiao) {
+      query += ' AND nh.NguoiGiao = @nguoiGiao'
+      params.nguoiGiao = nguoiGiao
+    }
+
+    query += ' ORDER BY nh.NgayNhap DESC'
+    const result = await db.query<any>(query, params)
+    return result.recordset
+  }
+
+  /**
+   * Báo cáo xuất kho theo filter
+   * Filter: NguoiGiao, NguoiNhan, Kho, từ ngày - đến ngày
+   */
+  async getBaoCaoXuatKho(tuNgay: string, denNgay: string, maKho?: number, nguoiGiao?: number, nguoiNhan?: number): Promise<any[]> {
+    let query = `
+      SELECT 
+        xh.SoPhieuX, xh.NgayXuat, xh.SoLuong,
+        hh.MaTS as MaHang, hh.TenHang,
+        kh.MaKhoText, kh.TenKho,
+        nvGiao.MaNVText as MaNVGiao, nvGiao.TenNV as TenNguoiGiao,
+        nvNhan.MaNVText as MaNVNhan, nvNhan.TenNV as TenNguoiNhan,
+        xh.DienGiai
+      FROM XuatHang xh
+      LEFT JOIN HangHoa hh ON xh.MaHang = hh.MaHang
+      LEFT JOIN Kho kh ON xh.MaKho = kh.MaKho
+      LEFT JOIN NhanVien nvGiao ON xh.NguoiGiao = nvGiao.MaNV
+      LEFT JOIN NhanVien nvNhan ON xh.NguoiNhan = nvNhan.MaNV
+      WHERE xh.NgayXuat >= @tuNgay AND xh.NgayXuat <= @denNgay
+    `
+    const params: Record<string, any> = { tuNgay, denNgay }
+
+    if (maKho) {
+      query += ' AND xh.MaKho = @maKho'
+      params.maKho = maKho
+    }
+    if (nguoiGiao) {
+      query += ' AND xh.NguoiGiao = @nguoiGiao'
+      params.nguoiGiao = nguoiGiao
+    }
+    if (nguoiNhan) {
+      query += ' AND xh.NguoiNhan = @nguoiNhan'
+      params.nguoiNhan = nguoiNhan
+    }
+
+    query += ' ORDER BY xh.NgayXuat DESC'
+    const result = await db.query<any>(query, params)
+    return result.recordset
+  }
+
+  /**
+   * Theo dõi lịch sử thiết bị - Tất cả nghiệp vụ liên quan đến thiết bị
+   * Nhập --> Xuất --> Điều chuyển
+   */
+  async getTheoDoiThietBi(maHang: number): Promise<any> {
+    // Lấy thông tin thiết bị
+    const hhResult = await db.query<any>(`
+      SELECT MaHang, MaTS, TenHang, LoaiHang FROM HangHoa WHERE MaHang = @maHang
+    `, { maHang })
+    const thietBi = hhResult.recordset[0]
+
+    if (!thietBi) return []
+
+    // Lấy tất cả nghiệp vụ
+    const result = await db.query<any>(`
+      SELECT * FROM (
+        -- Nhập kho
+        SELECT 
+          'NHAP' as LoaiNV, nh.NgayNhap as NgayGD, nh.SoPhieuN as SoPhieu,
+          NULL as TuKho, kh.TenKho as DenKho,
+          ncc.TenNCC as NguoiGiao, nv.TenNV as NguoiNhan,
+          nh.SoLuong, nh.DienGiai
+        FROM NhapHang nh
+        LEFT JOIN Kho kh ON nh.MaKho = kh.MaKho
+        LEFT JOIN NCC ncc ON nh.NguoiGiao = ncc.MaNCC
+        LEFT JOIN NhanVien nv ON nh.NguoiNhan = nv.MaNV
+        WHERE nh.MaHang = @maHang
+
+        UNION ALL
+
+        -- Xuất kho
+        SELECT 
+          'XUAT' as LoaiNV, xh.NgayXuat as NgayGD, xh.SoPhieuX as SoPhieu,
+          kh.TenKho as TuKho, NULL as DenKho,
+          nvGiao.TenNV as NguoiGiao, nvNhan.TenNV as NguoiNhan,
+          xh.SoLuong, xh.DienGiai
+        FROM XuatHang xh
+        LEFT JOIN Kho kh ON xh.MaKho = kh.MaKho
+        LEFT JOIN NhanVien nvGiao ON xh.NguoiGiao = nvGiao.MaNV
+        LEFT JOIN NhanVien nvNhan ON xh.NguoiNhan = nvNhan.MaNV
+        WHERE xh.MaHang = @maHang
+
+        UNION ALL
+
+        -- Điều chuyển
+        SELECT 
+          'DIEU_CHUYEN' as LoaiNV, dc.NgayDC as NgayGD, dc.SoPhieuDC as SoPhieu,
+          khTu.TenKho as TuKho, khDen.TenKho as DenKho,
+          nvGiao.TenNV as NguoiGiao, nvNhan.TenNV as NguoiNhan,
+          dc.SoLuong, dc.DienGiai
+        FROM DieuChuyen dc
+        LEFT JOIN Kho khTu ON dc.TuKho = khTu.MaKho
+        LEFT JOIN Kho khDen ON dc.DenKho = khDen.MaKho
+        LEFT JOIN NhanVien nvGiao ON dc.NguoiGiao = nvGiao.MaNV
+        LEFT JOIN NhanVien nvNhan ON dc.NguoiNhan = nvNhan.MaNV
+        WHERE dc.MaHang = @maHang
+      ) AS LichSu
+      ORDER BY NgayGD DESC
+    `, { maHang })
+
+    return { thietBi, lichSu: result.recordset }
+  }
+
+  /**
+   * Lấy danh sách thiết bị đã cấp cho một NV cụ thể
+   * Dùng cho đề xuất sửa chữa/nâng cấp
+   */
+  async getThietBiCuaNhanVien(maNV: number): Promise<any[]> {
+    const result = await db.query<any>(`
+      SELECT 
+        xh.MaHang, hh.MaTS, hh.TenHang, hh.LoaiHang as TenNhom,
+        xh.NgayXuat, kh.TenKho as TuKho
+      FROM XuatHang xh
+      INNER JOIN HangHoa hh ON xh.MaHang = hh.MaHang
+      LEFT JOIN Kho kh ON xh.MaKho = kh.MaKho
+      WHERE xh.NguoiNhan = @maNV
+      ORDER BY xh.NgayXuat DESC
+    `, { maNV })
     return result.recordset
   }
 }

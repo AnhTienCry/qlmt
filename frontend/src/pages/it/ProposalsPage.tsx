@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react'
 import { getProposals, processProposal, submitToDirector, itRejectProposal, completeProposal, updatePriority, itDirectApprove, sendFeedback } from '@/libs/proposal'
 import { Proposal } from '@/types/proposal.types'
 import { PROPOSAL_STATUS, PROPOSAL_TYPES, PRIORITY_LEVELS } from '@/constants'
-import { useToast, FeedbackTimeline, DirectorFeedbackTimeline } from '@/components/ui'
+import { useToast, FeedbackTimeline, DirectorFeedbackTimeline, UserFeedbackTimeline, SearchInput } from '@/components/ui'
+import { exportToExcel } from '@/libs/excel'
 
 export default function ITProposalsPage() {
   const toast = useToast()
@@ -13,10 +14,25 @@ export default function ITProposalsPage() {
   const [ghiChu, setGhiChu] = useState('')
   const [ketQua, setKetQua] = useState('')
   const [newPriority, setNewPriority] = useState('')
+  const [searchTerm, setSearchTerm] = useState('')
   // Feedback states
   const [showFeedbackForm, setShowFeedbackForm] = useState(false)
   const [feedbackContent, setFeedbackContent] = useState('')
   const [feedbackRecipient, setFeedbackRecipient] = useState<'user' | 'director' | 'both'>('user')
+  // Edit mode for IT approved proposals
+  const [editMode, setEditMode] = useState(false)
+  const [editAction, setEditAction] = useState<'none' | 'forward' | 'reject'>('none')
+
+  // Lọc theo search
+  const filteredProposals = proposals.filter(p => {
+    const search = searchTerm.toLowerCase()
+    return (
+      p.tieuDe.toLowerCase().includes(search) ||
+      p.nguoiTao.username.toLowerCase().includes(search) ||
+      p.maYC.toString().includes(search) ||
+      (PROPOSAL_TYPES[p.loaiYC as keyof typeof PROPOSAL_TYPES] || '').toLowerCase().includes(search)
+    )
+  })
 
   useEffect(() => {
     fetchProposals()
@@ -205,6 +221,34 @@ export default function ITProposalsPage() {
     )
   }
 
+  // Xuất Excel
+  const handleExportExcel = () => {
+    const columns = [
+      { key: 'maYC' as const, title: 'Mã' },
+      { key: 'tieuDe' as const, title: 'Tiêu đề' },
+      { key: 'nguoiTao' as const, title: 'Người tạo' },
+      { key: 'loaiYC' as const, title: 'Loại' },
+      { key: 'mucDoUuTien' as const, title: 'Ưu tiên' },
+      { key: 'trangThai' as const, title: 'Trạng thái' },
+      { key: 'ngayTao' as const, title: 'Ngày tạo' },
+      { key: 'itXuLy' as const, title: 'IT xử lý' },
+      { key: 'ngayXuLy' as const, title: 'Ngày xử lý' },
+    ]
+    const data = filteredProposals.map(p => ({
+      maYC: p.maYC,
+      tieuDe: p.tieuDe,
+      nguoiTao: p.nguoiTao.username,
+      loaiYC: PROPOSAL_TYPES[p.loaiYC as keyof typeof PROPOSAL_TYPES] || p.loaiYC,
+      mucDoUuTien: p.mucDoUuTien,
+      trangThai: PROPOSAL_STATUS[p.trangThai as keyof typeof PROPOSAL_STATUS]?.label || p.trangThai,
+      ngayTao: new Date(p.ngayTao).toLocaleDateString('vi-VN'),
+      itXuLy: p.itXuLy.tenNV || '',
+      ngayXuLy: p.itXuLy.ngayXuLy ? new Date(p.itXuLy.ngayXuLy).toLocaleDateString('vi-VN') : '',
+    }))
+    exportToExcel(data, columns, { filename: `De_xuat_${new Date().toISOString().slice(0,10)}` })
+    toast.success('Đã xuất Excel thành công!')
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -215,9 +259,29 @@ export default function ITProposalsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-white">Xử lý đề xuất</h1>
-        <p className="text-gray-400 mt-1">Danh sách đề xuất cần xử lý</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Xử lý đề xuất</h1>
+          <p className="text-gray-400 mt-1">Danh sách đề xuất cần xử lý</p>
+        </div>
+        <button
+          onClick={handleExportExcel}
+          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          Xuất Excel
+        </button>
+      </div>
+
+      {/* Thanh tìm kiếm */}
+      <div className="w-full max-w-md">
+        <SearchInput
+          value={searchTerm}
+          onChange={setSearchTerm}
+          placeholder="Tìm theo mã, tiêu đề, người tạo..."
+        />
       </div>
 
       <div className="bg-[#1a1a1a] border border-[#2e2e2e] rounded-xl overflow-hidden">
@@ -230,11 +294,12 @@ export default function ITProposalsPage() {
               <th className="text-left text-gray-400 font-medium px-6 py-3">Loại</th>
               <th className="text-left text-gray-400 font-medium px-6 py-3">Ưu tiên</th>
               <th className="text-left text-gray-400 font-medium px-6 py-3">Trạng thái</th>
+              <th className="text-left text-gray-400 font-medium px-6 py-3">Ngày tạo</th>
               <th className="text-left text-gray-400 font-medium px-6 py-3">Thao tác</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#2e2e2e]">
-            {proposals.map((proposal) => (
+            {filteredProposals.map((proposal) => (
               <tr key={proposal.maYC} className="hover:bg-[#2e2e2e]/50">
                 <td className="px-6 py-4 text-gray-300">#{proposal.maYC}</td>
                 <td className="px-6 py-4 text-white">{proposal.tieuDe}</td>
@@ -244,6 +309,7 @@ export default function ITProposalsPage() {
                 </td>
                 <td className="px-6 py-4">{getPriorityBadge(proposal.mucDoUuTien)}</td>
                 <td className="px-6 py-4">{getStatusBadge(proposal.trangThai)}</td>
+                <td className="px-6 py-4 text-gray-400">{new Date(proposal.ngayTao).toLocaleDateString('vi-VN')}</td>
                 <td className="px-6 py-4">
                   <button
                     onClick={() => {
@@ -350,9 +416,7 @@ export default function ITProposalsPage() {
                         {selectedProposal.trangThai === 'rejected' ? 'GĐ từ chối' : 'GĐ duyệt'}
                       </p>
                       <p className="text-gray-400 text-xs">{new Date(selectedProposal.giamDoc.ngayDuyet).toLocaleString('vi-VN')}</p>
-                      {selectedProposal.giamDoc.ghiChu && (
-                        <p className="text-gray-300 text-xs">Ghi chú: {selectedProposal.giamDoc.ghiChu}</p>
-                      )}
+                      <p className="text-gray-300 text-xs">Bởi: {selectedProposal.giamDoc.tenNV || 'Giám đốc'}</p>
                     </div>
                   )}
 
@@ -362,6 +426,7 @@ export default function ITProposalsPage() {
                       <div className="absolute -left-4 w-3 h-3 rounded-full bg-green-500"></div>
                       <p className="text-green-400 text-sm font-medium">IT duyệt trực tiếp</p>
                       <p className="text-gray-400 text-xs">{new Date(selectedProposal.itXuLy.ngayXuLy).toLocaleString('vi-VN')}</p>
+                      <p className="text-gray-300 text-xs">Bởi: {selectedProposal.itXuLy.tenNV || 'IT'}</p>
                     </div>
                   )}
 
@@ -371,6 +436,7 @@ export default function ITProposalsPage() {
                       <div className="absolute -left-4 w-3 h-3 rounded-full bg-red-500"></div>
                       <p className="text-red-400 text-sm font-medium">IT từ chối</p>
                       <p className="text-gray-400 text-xs">{selectedProposal.itXuLy.ngayXuLy ? new Date(selectedProposal.itXuLy.ngayXuLy).toLocaleString('vi-VN') : ''}</p>
+                      <p className="text-gray-300 text-xs">Bởi: {selectedProposal.itXuLy.tenNV || 'IT'}</p>
                     </div>
                   )}
 
@@ -380,9 +446,7 @@ export default function ITProposalsPage() {
                       <div className="absolute -left-4 w-3 h-3 rounded-full bg-green-500"></div>
                       <p className="text-green-400 text-sm font-medium">Hoàn thành</p>
                       <p className="text-gray-400 text-xs">{new Date(selectedProposal.ngayHoanThanh).toLocaleString('vi-VN')}</p>
-                      {selectedProposal.ketQua && (
-                        <p className="text-gray-300 text-xs">Kết quả: {selectedProposal.ketQua}</p>
-                      )}
+                      <p className="text-gray-300 text-xs">Bởi: {selectedProposal.itXuLy.tenNV || 'IT'}</p>
                     </div>
                   )}
 
@@ -451,6 +515,12 @@ export default function ITProposalsPage() {
               />
               {/* Phản hồi từ Giám đốc */}
               <DirectorFeedbackTimeline
+                ghiChuGD={selectedProposal.ghiChuGD}
+                viewerRole="it"
+              />
+              {/* Phản hồi từ User */}
+              <UserFeedbackTimeline
+                ghiChuIT={selectedProposal.ghiChuIT}
                 ghiChuGD={selectedProposal.ghiChuGD}
                 viewerRole="it"
               />
@@ -537,16 +607,14 @@ export default function ITProposalsPage() {
                       Xác nhận & Bắt đầu xử lý
                     </button>
                     
-                    {/* Nút IT duyệt trực tiếp - chỉ với sửa chữa */}
-                    {selectedProposal.loaiYC === 'sua_chua' && (
-                      <button
-                        onClick={() => handleItDirectApprove(selectedProposal.maYC)}
-                        disabled={actionLoading}
-                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
-                      >
-                        ✓ IT duyệt (sửa nhỏ)
-                      </button>
-                    )}
+                    {/* Nút IT duyệt trực tiếp */}
+                    <button
+                      onClick={() => handleItDirectApprove(selectedProposal.maYC)}
+                      disabled={actionLoading}
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                    >
+                      ✓ IT duyệt
+                    </button>
                     
                     <button
                       onClick={() => handleReject(selectedProposal.maYC)}
@@ -571,16 +639,14 @@ export default function ITProposalsPage() {
                       Chuyển lên GĐ duyệt
                     </button>
                     
-                    {/* Nút IT duyệt trực tiếp - chỉ với sửa chữa */}
-                    {selectedProposal.loaiYC === 'sua_chua' && (
-                      <button
-                        onClick={() => handleItDirectApprove(selectedProposal.maYC)}
-                        disabled={actionLoading}
-                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
-                      >
-                        ✓ IT duyệt (sửa nhỏ)
-                      </button>
-                    )}
+                    {/* Nút IT duyệt trực tiếp */}
+                    <button
+                      onClick={() => handleItDirectApprove(selectedProposal.maYC)}
+                      disabled={actionLoading}
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                    >
+                      ✓ IT duyệt
+                    </button>
                     
                     <button
                       onClick={() => handleReject(selectedProposal.maYC)}
@@ -599,24 +665,121 @@ export default function ITProposalsPage() {
                   <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
                     <p className="text-green-400 text-sm">
                       {selectedProposal.trangThai === 'it_approved' 
-                        ? '✓ IT đã duyệt trực tiếp (sửa chữa nhỏ)' 
+                        ? '✓ IT đã duyệt trực tiếp' 
                         : '✓ Giám đốc đã duyệt đề xuất này'}
                     </p>
                   </div>
-                  <textarea
-                    value={ketQua}
-                    onChange={(e) => setKetQua(e.target.value)}
-                    placeholder="Nhập kết quả thực hiện..."
-                    className="w-full bg-[#2e2e2e] border border-[#3e3e3e] text-white rounded-lg px-4 py-3"
-                    rows={3}
-                  />
-                  <button
-                    onClick={() => handleComplete(selectedProposal.maYC)}
-                    disabled={actionLoading}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
-                  >
-                    Đánh dấu hoàn thành
-                  </button>
+                  
+                  {/* Nút Sửa quyết định cho IT_APPROVED */}
+                  {selectedProposal.trangThai === 'it_approved' && !editMode && (
+                    <button
+                      onClick={() => { setEditMode(true); setEditAction('none') }}
+                      className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors"
+                    >
+                      ✏️ Sửa quyết định
+                    </button>
+                  )}
+
+                  {/* Edit mode buttons - hiển thị 3 nút với logic theo yêu cầu */}
+                  {selectedProposal.trangThai === 'it_approved' && editMode && (
+                    <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 space-y-3">
+                      <p className="text-yellow-400 text-sm font-medium">Thay đổi quyết định:</p>
+                      <div className="flex gap-3 flex-wrap">
+                        {/* Nút Trình GĐ: sáng khi editAction=none, mờ khi đã chọn forward */}
+                        <button
+                          onClick={() => setEditAction('forward')}
+                          disabled={actionLoading || editAction === 'forward'}
+                          className={`px-4 py-2 rounded-lg transition-colors ${
+                            editAction === 'forward'
+                              ? 'bg-purple-800 text-purple-300 cursor-not-allowed opacity-50'
+                              : 'bg-purple-600 text-white hover:bg-purple-700'
+                          }`}
+                        >
+                          Trình GĐ
+                        </button>
+                        {/* Nút Từ chối: sáng khi editAction=none, mờ khi đã chọn reject */}
+                        <button
+                          onClick={() => setEditAction('reject')}
+                          disabled={actionLoading || editAction === 'reject'}
+                          className={`px-4 py-2 rounded-lg transition-colors ${
+                            editAction === 'reject'
+                              ? 'bg-red-800 text-red-300 cursor-not-allowed opacity-50'
+                              : 'bg-red-600 text-white hover:bg-red-700'
+                          }`}
+                        >
+                          Từ chối
+                        </button>
+                        {/* Nút IT duyệt: mờ khi editAction=none, sáng khi đã chọn forward/reject */}
+                        <button
+                          onClick={() => setEditAction('none')}
+                          disabled={actionLoading || editAction === 'none'}
+                          className={`px-4 py-2 rounded-lg transition-colors ${
+                            editAction === 'none'
+                              ? 'bg-green-800 text-green-300 cursor-not-allowed opacity-50'
+                              : 'bg-green-600 text-white hover:bg-green-700'
+                          }`}
+                        >
+                          ✓ IT duyệt
+                        </button>
+                      </div>
+                      
+                      {/* Xác nhận thay đổi */}
+                      <div className="flex gap-3 pt-2">
+                        {editAction === 'forward' && (
+                          <button
+                            onClick={async () => {
+                              await handleSubmitToDirector(selectedProposal.maYC)
+                              setEditMode(false)
+                              setEditAction('none')
+                            }}
+                            disabled={actionLoading}
+                            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
+                          >
+                            Xác nhận chuyển GĐ
+                          </button>
+                        )}
+                        {editAction === 'reject' && (
+                          <button
+                            onClick={async () => {
+                              await handleReject(selectedProposal.maYC)
+                              setEditMode(false)
+                              setEditAction('none')
+                            }}
+                            disabled={actionLoading}
+                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                          >
+                            Xác nhận từ chối
+                          </button>
+                        )}
+                        <button
+                          onClick={() => { setEditMode(false); setEditAction('none') }}
+                          className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+                        >
+                          {editAction === 'none' ? 'Giữ nguyên IT duyệt' : 'Hủy'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Phần hoàn thành */}
+                  {!editMode && (
+                    <>
+                      <textarea
+                        value={ketQua}
+                        onChange={(e) => setKetQua(e.target.value)}
+                        placeholder="Nhập kết quả thực hiện..."
+                        className="w-full bg-[#2e2e2e] border border-[#3e3e3e] text-white rounded-lg px-4 py-3"
+                        rows={3}
+                      />
+                      <button
+                        onClick={() => handleComplete(selectedProposal.maYC)}
+                        disabled={actionLoading}
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                      >
+                        Đánh dấu hoàn thành
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
 

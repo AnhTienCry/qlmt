@@ -426,6 +426,46 @@ export class ProposalController {
   }
 
   /**
+   * POST /api/proposals/:id/user-feedback
+   * User gửi phản hồi cho IT/GĐ
+   */
+  async userSendFeedback(req: Request, res: Response) {
+    try {
+      const id = parseInt(req.params.id)
+      const userId = req.userId!
+      const { noiDung, guiCho } = req.body
+
+      if (!noiDung?.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Vui lòng nhập nội dung phản hồi',
+        })
+      }
+
+      if (!guiCho || !['it', 'director', 'both'].includes(guiCho)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Vui lòng chọn người nhận phản hồi',
+        })
+      }
+
+      const proposal = await proposalService.userSendFeedback(id, userId, noiDung, guiCho)
+
+      res.json({
+        success: true,
+        message: 'Đã gửi phản hồi',
+        data: proposal,
+      })
+    } catch (error: any) {
+      console.error('Error sending user feedback:', error)
+      res.status(400).json({
+        success: false,
+        message: error.message || 'Lỗi gửi phản hồi',
+      })
+    }
+  }
+
+  /**
    * GET /api/proposals/stats
    * Thống kê đề xuất (IT, Director, Admin)
    */

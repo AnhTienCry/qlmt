@@ -5,6 +5,7 @@ import { ToastProvider } from '@/components/ui'
 import HomePage from '@/pages/HomePage'
 import LoginPage from '@/pages/LoginPage'
 import RegisterPage from '@/pages/RegisterPage'
+import ResetPasswordPage from '@/pages/ResetPasswordPage'
 import NotFoundPage from '@/pages/NotFoundPage'
 import { ROUTES } from '@/constants'
 
@@ -35,6 +36,7 @@ import ITProposalsPage from '@/pages/it/ProposalsPage'
 // Director pages
 import DirectorDashboardPage from '@/pages/director/DashboardPage'
 import DirectorProposalsPage from '@/pages/director/ProposalsPage'
+import DirectorReportPage from '@/pages/director/ReportPage'
 
 function App() {
   return (
@@ -46,6 +48,7 @@ function App() {
       {/* Public routes */}
       <Route path={ROUTES.LOGIN} element={<LoginPage />} />
       <Route path={ROUTES.REGISTER} element={<RegisterPage />} />
+      <Route path={ROUTES.RESET_PASSWORD} element={<ResetPasswordPage />} />
       
       {/* Change password - requires authentication */}
       <Route
@@ -90,6 +93,15 @@ function App() {
       >
         <Route index element={<ITDashboardPage />} />
         <Route path="proposals" element={<ITProposalsPage />} />
+        <Route path="warehouses" element={<WarehousesPage />} />
+        <Route path="departments" element={<DepartmentsPage />} />
+        <Route path="employees" element={<EmployeesPage />} />
+        <Route path="hanghoa" element={<HangHoaPage />} />
+        <Route path="ncc" element={<NCCPage />} />
+        <Route path="stock-in" element={<StockInPage />} />
+        <Route path="stock-out" element={<StockOutPage />} />
+        <Route path="transfer" element={<TransferPage />} />
+        <Route path="report" element={<ReportPage />} />
       </Route>
       
       {/* ========== DIRECTOR ROUTES ========== */}
@@ -103,6 +115,7 @@ function App() {
       >
         <Route index element={<DirectorDashboardPage />} />
         <Route path="proposals" element={<DirectorProposalsPage />} />
+        <Route path="report" element={<DirectorReportPage />} />
       </Route>
       
       {/* ========== USER ROUTES ========== */}

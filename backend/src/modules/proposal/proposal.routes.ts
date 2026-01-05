@@ -21,6 +21,9 @@ router.get('/:id', proposalController.getProposalById.bind(proposalController))
 // POST /api/proposals - Tạo đề xuất mới
 router.post('/', proposalController.createProposal.bind(proposalController))
 
+// POST /api/proposals/:id/user-feedback - User gửi phản hồi cho IT/GĐ
+router.post('/:id/user-feedback', proposalController.userSendFeedback.bind(proposalController))
+
 // ========== Routes cho IT ==========
 
 // POST /api/proposals/:id/process - IT bắt đầu xử lý

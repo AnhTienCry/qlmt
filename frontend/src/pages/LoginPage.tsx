@@ -94,6 +94,15 @@ const LoginPage = () => {
               Đăng nhập
             </Button>
 
+            <div className="text-center">
+              <Link
+                to={ROUTES.RESET_PASSWORD}
+                className="text-sm text-yellow-500 hover:text-yellow-400 transition"
+              >
+                Quên mật khẩu?
+              </Link>
+            </div>
+
             <div className="text-center text-sm">
               <span className="text-gray-500">Chưa có tài khoản? </span>
               <Link to={ROUTES.REGISTER} className="text-blue-500 hover:text-blue-400">

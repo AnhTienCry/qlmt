@@ -101,11 +101,9 @@ const EmployeesPage = () => {
     setShowModal(true)
   }
 
-  const handleResetPassword = async (item: Employee) => {
-    const username = item.maNVText?.toLowerCase() || `nv${item.maNV}`
-    const matKhauMacDinh = `${username}@123`
-    
-    alert(`📋 THÔNG TIN TÀI KHOẢN\n\nNhân viên: ${item.tenNV}\nMã NV: ${item.maNVText}\nPhòng ban: ${item.tenPB || 'Chưa có'}\nTài khoản: ${username}\nMật khẩu mặc định: ${matKhauMacDinh}\n\n(Nhân viên có thể đổi mật khẩu sau khi đăng nhập)`)
+  const handleViewAccount = (item: Employee) => {
+    const username = item.maNVText?.toLowerCase() || ''
+    alert(`📋 THÔNG TIN TÀI KHOẢN\n\nNhân viên: ${item.tenNV}\nMã NV: ${item.maNVText}\nPhòng ban: ${item.tenPB || 'Chưa có'}\n\n📌 TÀI KHOẢN ĐĂNG NHẬP:\nUsername: ${username}\nMật khẩu mặc định: ${username}@123\n\n(Nhân viên có thể đổi mật khẩu sau khi đăng nhập)`)
   }
 
   const handleDelete = async (id: number) => {
@@ -222,7 +220,7 @@ const EmployeesPage = () => {
                     <td className="px-4 py-3 text-sm text-gray-400">{item.soDienThoai || '-'}</td>
                     <td className="px-4 py-3 text-right">
                       <button
-                        onClick={() => handleResetPassword(item)}
+                        onClick={() => handleViewAccount(item)}
                         className="p-1.5 text-gray-400 hover:text-yellow-400 transition"
                         title="Xem tài khoản"
                       >

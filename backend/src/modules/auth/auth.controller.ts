@@ -178,4 +178,28 @@ export class AuthController {
       next(error)
     }
   }
+
+  // Public: Reset password về mặc định (không cần đăng nhập)
+  async resetPasswordPublic(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { username } = req.body
+      
+      if (!username) {
+        return res.status(400).json({
+          success: false,
+          message: 'Vui lòng nhập tên đăng nhập',
+        })
+      }
+
+      const result = await authService.resetPasswordByUsername(username.trim())
+
+      res.json({
+        success: true,
+        message: 'Đặt lại mật khẩu thành công',
+        data: result,
+      })
+    } catch (error) {
+      next(error)
+    }
+  }
 }

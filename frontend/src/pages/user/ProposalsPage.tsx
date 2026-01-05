@@ -1,14 +1,19 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { getProposals } from '@/libs/proposal'
+import { getProposals, userSendFeedback } from '@/libs/proposal'
 import { Proposal } from '@/types/proposal.types'
 import { ROUTES, PROPOSAL_TYPES, PRIORITY_LEVELS, IT_STATUS, GD_STATUS } from '@/constants'
-import { FeedbackTimeline, DirectorFeedbackTimeline } from '@/components/ui'
+import { FeedbackTimeline, DirectorFeedbackTimeline, UserFeedbackTimeline } from '@/components/ui'
 
 export default function UserProposalsPage() {
   const [proposals, setProposals] = useState<Proposal[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedProposal, setSelectedProposal] = useState<Proposal | null>(null)
+  
+  // State cho phản hồi
+  const [feedbackContent, setFeedbackContent] = useState('')
+  const [feedbackTarget, setFeedbackTarget] = useState<'it' | 'director' | 'both'>('it')
+  const [sendingFeedback, setSendingFeedback] = useState(false)
 
   useEffect(() => {
     fetchProposals()
@@ -22,6 +27,32 @@ export default function UserProposalsPage() {
       console.error('Error fetching proposals:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Gửi phản hồi cho IT/GĐ
+  const handleSendFeedback = async () => {
+    if (!selectedProposal || !feedbackContent.trim()) return
+    
+    setSendingFeedback(true)
+    try {
+      const response = await userSendFeedback(selectedProposal.maYC, feedbackContent, feedbackTarget)
+      if (response.success) {
+        // Cập nhật proposal trong list
+        setProposals(prev => prev.map(p => 
+          p.maYC === selectedProposal.maYC ? response.data : p
+        ))
+        // Cập nhật selected proposal
+        setSelectedProposal(response.data)
+        // Reset form
+        setFeedbackContent('')
+        alert('Đã gửi phản hồi thành công!')
+      }
+    } catch (error: any) {
+      console.error('Error sending feedback:', error)
+      alert(error.response?.data?.message || 'Lỗi gửi phản hồi')
+    } finally {
+      setSendingFeedback(false)
     }
   }
 
@@ -271,9 +302,7 @@ export default function UserProposalsPage() {
                         {selectedProposal.trangThai === 'rejected' ? 'GĐ từ chối' : 'GĐ duyệt'}
                       </p>
                       <p className="text-gray-400 text-xs">{new Date(selectedProposal.giamDoc.ngayDuyet).toLocaleString('vi-VN')}</p>
-                      {selectedProposal.giamDoc.ghiChu && (
-                        <p className="text-gray-300 text-xs">Ghi chú: {selectedProposal.giamDoc.ghiChu}</p>
-                      )}
+                      <p className="text-gray-300 text-xs">Bởi: {selectedProposal.giamDoc.tenNV || 'Giám đốc'}</p>
                     </div>
                   )}
 
@@ -283,6 +312,7 @@ export default function UserProposalsPage() {
                       <div className="absolute -left-4 w-3 h-3 rounded-full bg-green-500"></div>
                       <p className="text-green-400 text-sm font-medium">IT duyệt trực tiếp</p>
                       <p className="text-gray-400 text-xs">{new Date(selectedProposal.itXuLy.ngayXuLy).toLocaleString('vi-VN')}</p>
+                      <p className="text-gray-300 text-xs">Bởi: {selectedProposal.itXuLy.tenNV || 'IT'}</p>
                     </div>
                   )}
 
@@ -292,6 +322,7 @@ export default function UserProposalsPage() {
                       <div className="absolute -left-4 w-3 h-3 rounded-full bg-red-500"></div>
                       <p className="text-red-400 text-sm font-medium">IT từ chối</p>
                       <p className="text-gray-400 text-xs">{selectedProposal.itXuLy.ngayXuLy ? new Date(selectedProposal.itXuLy.ngayXuLy).toLocaleString('vi-VN') : ''}</p>
+                      <p className="text-gray-300 text-xs">Bởi: {selectedProposal.itXuLy.tenNV || 'IT'}</p>
                     </div>
                   )}
 
@@ -301,9 +332,7 @@ export default function UserProposalsPage() {
                       <div className="absolute -left-4 w-3 h-3 rounded-full bg-green-500"></div>
                       <p className="text-green-400 text-sm font-medium">Hoàn thành</p>
                       <p className="text-gray-400 text-xs">{new Date(selectedProposal.ngayHoanThanh).toLocaleString('vi-VN')}</p>
-                      {selectedProposal.ketQua && (
-                        <p className="text-gray-300 text-xs">Kết quả: {selectedProposal.ketQua}</p>
-                      )}
+                      <p className="text-gray-300 text-xs">Bởi: {selectedProposal.itXuLy.tenNV || 'IT'}</p>
                     </div>
                   )}
 
@@ -335,22 +364,6 @@ export default function UserProposalsPage() {
                 </div>
               </div>
 
-              {/* Ghi chú từ IT (ghi chú thường, không phải phản hồi) */}
-              {selectedProposal.ghiChuIT && (() => {
-                const normalNotes = selectedProposal.ghiChuIT
-                  .split('\n')
-                  .filter(l => l.trim() && !l.includes('[IT→') && !l.includes('[Phản hồi '))
-                  .join('\n')
-                
-                if (!normalNotes) return null
-                return (
-                  <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-lg p-3">
-                    <p className="text-cyan-400 text-sm font-medium mb-1">📝 Ghi chú từ IT:</p>
-                    <p className="text-white text-sm whitespace-pre-wrap">{normalNotes}</p>
-                  </div>
-                )
-              })()}
-
               {/* Phản hồi từ IT */}
               <FeedbackTimeline
                 ghiChuIT={selectedProposal.ghiChuIT}
@@ -362,6 +375,90 @@ export default function UserProposalsPage() {
                 ghiChuGD={selectedProposal.ghiChuGD}
                 viewerRole="user"
               />
+
+              {/* Phản hồi từ User */}
+              <UserFeedbackTimeline
+                ghiChuIT={selectedProposal.ghiChuIT}
+                ghiChuGD={selectedProposal.ghiChuGD}
+                viewerRole="user"
+              />
+
+              {/* Form gửi phản hồi cho IT/GĐ */}
+              {selectedProposal.trangThai !== 'completed' && (
+                <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
+                  <p className="text-green-400 text-sm font-medium mb-3">💬 Gửi phản hồi</p>
+                  
+                  {/* Chọn người nhận */}
+                  <div className="mb-3">
+                    <p className="text-gray-400 text-xs mb-2">Gửi đến:</p>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setFeedbackTarget('it')}
+                        className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                          feedbackTarget === 'it'
+                            ? 'bg-cyan-600 text-white'
+                            : 'bg-[#2e2e2e] text-gray-300 hover:bg-[#3e3e3e]'
+                        }`}
+                      >
+                        IT
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFeedbackTarget('director')}
+                        className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                          feedbackTarget === 'director'
+                            ? 'bg-purple-600 text-white'
+                            : 'bg-[#2e2e2e] text-gray-300 hover:bg-[#3e3e3e]'
+                        }`}
+                      >
+                        Giám đốc
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFeedbackTarget('both')}
+                        className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                          feedbackTarget === 'both'
+                            ? 'bg-green-600 text-white'
+                            : 'bg-[#2e2e2e] text-gray-300 hover:bg-[#3e3e3e]'
+                        }`}
+                      >
+                        Cả hai
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Nội dung phản hồi */}
+                  <textarea
+                    value={feedbackContent}
+                    onChange={(e) => setFeedbackContent(e.target.value)}
+                    placeholder="Nhập nội dung phản hồi..."
+                    rows={3}
+                    className="w-full px-3 py-2 bg-[#2e2e2e] border border-[#3e3e3e] rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-green-500 text-sm"
+                  />
+
+                  {/* Nút gửi */}
+                  <button
+                    onClick={handleSendFeedback}
+                    disabled={sendingFeedback || !feedbackContent.trim()}
+                    className="mt-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm flex items-center gap-2"
+                  >
+                    {sendingFeedback ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                        Đang gửi...
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                        </svg>
+                        Gửi phản hồi
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

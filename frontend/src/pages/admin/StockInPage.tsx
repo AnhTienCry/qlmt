@@ -10,19 +10,23 @@ interface NhapHang {
   NgayNhap: string
   MaHang: number
   TenHang?: string
+  MaHangText?: string
   MaKho: number
   TenKho?: string
+  MaKhoText?: string
   NguoiGiao: number
   TenNCC?: string
+  MaNCCText?: string
   NguoiNhan: number
   TenNguoiNhan?: string
+  MaNVNhan?: string
   DienGiai?: string
 }
 
-interface HangHoa { MaHang: number; TenHang: string }
-interface Kho { maKho: number; tenKho: string }
-interface NCC { MaNCC: number; TenNCC: string }
-interface NhanVien { maNV: number; tenNV: string }
+interface HangHoa { MaHang: number; TenHang: string; MaTS?: string; MaHangText?: string }
+interface Kho { maKho: number; tenKho: string; maKhoText?: string }
+interface NCC { MaNCC: number; TenNCC: string; MaSoThue?: string; MaNCCText?: string }
+interface NhanVien { maNV: number; tenNV: string; maNVText?: string }
 
 const StockInPage = () => {
   const [items, setItems] = useState<NhapHang[]>([])
@@ -197,7 +201,12 @@ const StockInPage = () => {
     { 
       key: 'TenHang', 
       header: 'Hàng hóa',
-      render: (item: NhapHang) => <span className="text-white font-medium">{item.TenHang}</span>
+      render: (item: NhapHang) => (
+        <div>
+          <span className="text-white font-medium">{item.TenHang}</span>
+          {item.MaHangText && <span className="text-gray-500 text-xs ml-2">({item.MaHangText})</span>}
+        </div>
+      )
     },
     { 
       key: 'TenKho', 
@@ -212,7 +221,10 @@ const StockInPage = () => {
           <svg className="w-4 h-4 mr-2 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
           </svg>
-          <span className="text-gray-300">{item.TenNCC}</span>
+          <span className="text-gray-300">
+            {item.TenNCC}
+            {item.MaNCCText && <span className="text-gray-500 text-xs ml-1">({item.MaNCCText})</span>}
+          </span>
         </div>
       )
     },
@@ -224,7 +236,10 @@ const StockInPage = () => {
           <svg className="w-4 h-4 mr-2 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
           </svg>
-          <span className="text-gray-300">{item.TenNguoiNhan || '-'}</span>
+          <span className="text-gray-300">
+            {item.TenNguoiNhan || '-'}
+            {item.MaNVNhan && <span className="text-gray-500 text-xs ml-1">({item.MaNVNhan})</span>}
+          </span>
         </div>
       )
     },
@@ -359,7 +374,7 @@ const StockInPage = () => {
           <div className="grid grid-cols-2 gap-4">
             <SelectWithAdd
               label="Hàng hóa *"
-              options={hangHoas.map(h => ({ value: h.MaHang, label: h.TenHang }))}
+              options={hangHoas.map(h => ({ value: h.MaHang, label: `${h.TenHang}${h.MaTS ? ` (${h.MaTS})` : ''}` }))}
               value={formData.MaHang}
               onChange={(v) => setFormData({ ...formData, MaHang: v })}
               placeholder="Chọn hàng hóa..."
@@ -368,7 +383,7 @@ const StockInPage = () => {
             />
             <SelectWithAdd
               label="Kho hàng *"
-              options={khos.map(k => ({ value: k.maKho, label: k.tenKho }))}
+              options={khos.map(k => ({ value: k.maKho, label: `${k.tenKho}${k.maKhoText ? ` (${k.maKhoText})` : ''}` }))}
               value={formData.MaKho}
               onChange={(v) => setFormData({ ...formData, MaKho: v })}
               placeholder="Chọn kho..."
@@ -380,7 +395,7 @@ const StockInPage = () => {
           <div className="grid grid-cols-2 gap-4">
             <SelectWithAdd
               label="Người giao (NCC)"
-              options={nccs.map(n => ({ value: n.MaNCC, label: n.TenNCC }))}
+              options={nccs.map(n => ({ value: n.MaNCC, label: `${n.TenNCC}${n.MaSoThue ? ` (${n.MaSoThue})` : ''}` }))}
               value={formData.NguoiGiao}
               onChange={(v) => setFormData({ ...formData, NguoiGiao: v })}
               placeholder="Chọn NCC..."
@@ -389,7 +404,7 @@ const StockInPage = () => {
             />
             <SelectWithAdd
               label="Người nhận (NV)"
-              options={nhanViens.map(nv => ({ value: nv.maNV, label: nv.tenNV }))}
+              options={nhanViens.map(nv => ({ value: nv.maNV, label: `${nv.tenNV}${nv.maNVText ? ` (${nv.maNVText})` : ''}` }))}
               value={formData.NguoiNhan}
               onChange={(v) => setFormData({ ...formData, NguoiNhan: v })}
               placeholder="Chọn nhân viên..."

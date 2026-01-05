@@ -4,6 +4,7 @@ export const ROUTES = {
   // Public
   LOGIN: '/login',
   REGISTER: '/register',
+  RESET_PASSWORD: '/reset-password',
   CHANGE_PASSWORD: '/change-password',
   
   // Admin routes
@@ -24,10 +25,20 @@ export const ROUTES = {
   // IT routes
   IT_DASHBOARD: '/it',
   IT_PROPOSALS: '/it/proposals',
+  IT_WAREHOUSES: '/it/warehouses',
+  IT_DEPARTMENTS: '/it/departments',
+  IT_EMPLOYEES: '/it/employees',
+  IT_HANGHOA: '/it/hanghoa',
+  IT_NCC: '/it/ncc',
+  IT_STOCK_IN: '/it/stock-in',
+  IT_STOCK_OUT: '/it/stock-out',
+  IT_TRANSFER: '/it/transfer',
+  IT_REPORT: '/it/report',
   
   // Director routes
   DIRECTOR_DASHBOARD: '/director',
   DIRECTOR_PROPOSALS: '/director/proposals',
+  DIRECTOR_REPORT: '/director/report',
   
   // User routes
   USER_DASHBOARD: '/user',

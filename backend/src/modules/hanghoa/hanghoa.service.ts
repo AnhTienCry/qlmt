@@ -5,7 +5,7 @@ export const hanghoaService = {
   // Lấy tất cả hàng hóa
   async getAll(filters?: { loaiHang?: string; trangThai?: string }): Promise<HangHoa[]> {
     let query = `
-      SELECT MaHang, MaTS, LoaiHang, TenHang, Hang, Model, NamSX, 
+      SELECT MaHang, MaTS, MaTS as MaHangText, LoaiHang, TenHang, Hang, Model, NamSX, 
              TrangThai, ThongTinChiTiet, NgayTao, NgayCapNhat
       FROM HangHoa
       WHERE 1=1

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { getProposals, approveProposal, rejectProposal, directorSendFeedback } from '@/libs/proposal'
 import { Proposal } from '@/types/proposal.types'
 import { PROPOSAL_STATUS, PROPOSAL_TYPES } from '@/constants'
-import { useToast, FeedbackTimeline, DirectorFeedbackTimeline } from '@/components/ui'
+import { useToast, FeedbackTimeline, DirectorFeedbackTimeline, UserFeedbackTimeline } from '@/components/ui'
 
 export default function DirectorProposalsPage() {
   const toast = useToast()
@@ -11,6 +11,7 @@ export default function DirectorProposalsPage() {
   const [selectedProposal, setSelectedProposal] = useState<Proposal | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
   const [ghiChu, setGhiChu] = useState('')
+  const [showRejectForm, setShowRejectForm] = useState(false)
   // Feedback states
   const [showFeedbackForm, setShowFeedbackForm] = useState(false)
   const [feedbackContent, setFeedbackContent] = useState('')
@@ -251,7 +252,7 @@ export default function DirectorProposalsPage() {
               {selectedProposal.ghiChuIT && (() => {
                 const normalNotes = selectedProposal.ghiChuIT
                   .split('\n')
-                  .filter(l => l.trim() && !l.includes('[IT→') && !l.includes('[Phản hồi '))
+                  .filter(l => l.trim() && !l.includes('[IT→') && !l.includes('[Phản hồi ') && !l.includes('[IT duyệt]') && !l.includes('[User→'))
                   .join('\n')
                 
                 if (!normalNotes) return null
@@ -263,6 +264,131 @@ export default function DirectorProposalsPage() {
                 )
               })()}
 
+              {/* Thông tin IT xử lý */}
+              {selectedProposal.itXuLy.tenNV && (
+                <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-lg p-4">
+                  <p className="text-cyan-400 text-sm font-medium mb-2">🔧 Thông tin IT xử lý</p>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <span className="text-gray-400">IT xử lý:</span>
+                      <span className="text-white ml-2">{selectedProposal.itXuLy.tenNV}</span>
+                    </div>
+                    {selectedProposal.itXuLy.ngayXuLy && (
+                      <div>
+                        <span className="text-gray-400">Ngày xử lý:</span>
+                        <span className="text-white ml-2">{new Date(selectedProposal.itXuLy.ngayXuLy).toLocaleString('vi-VN')}</span>
+                      </div>
+                    )}
+                    {selectedProposal.trangThai === 'it_approved' && (
+                      <div className="col-span-2">
+                        <span className="px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs font-medium">
+                          ✓ IT đã duyệt trực tiếp
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* ===== TIMELINE LỊCH SỬ XỬ LÝ ===== */}
+              <div className="bg-[#2e2e2e] rounded-lg p-4">
+                <p className="text-white text-sm font-medium mb-3">📋 Lịch sử xử lý</p>
+                <div className="relative pl-6 space-y-4">
+                  {/* Dọc line */}
+                  <div className="absolute left-2 top-1 bottom-1 w-0.5 bg-[#3e3e3e]"></div>
+                  
+                  {/* Bước 1: Tạo đề xuất */}
+                  <div className="relative">
+                    <div className="absolute -left-4 w-3 h-3 rounded-full bg-green-500"></div>
+                    <p className="text-green-400 text-sm font-medium">Tạo đề xuất</p>
+                    <p className="text-gray-400 text-xs">{new Date(selectedProposal.ngayTao).toLocaleString('vi-VN')}</p>
+                    <p className="text-gray-300 text-xs">Bởi: {selectedProposal.nguoiTao.username}</p>
+                  </div>
+
+                  {/* Bước 2: IT tiếp nhận */}
+                  {selectedProposal.itXuLy.ngayXuLy && (
+                    <div className="relative">
+                      <div className="absolute -left-4 w-3 h-3 rounded-full bg-cyan-500"></div>
+                      <p className="text-cyan-400 text-sm font-medium">IT xử lý</p>
+                      <p className="text-gray-400 text-xs">{new Date(selectedProposal.itXuLy.ngayXuLy).toLocaleString('vi-VN')}</p>
+                      <p className="text-gray-300 text-xs">Bởi: {selectedProposal.itXuLy.tenNV || 'IT'}</p>
+                    </div>
+                  )}
+
+                  {/* Bước 3: GĐ duyệt */}
+                  {selectedProposal.giamDoc.ngayDuyet && (
+                    <div className="relative">
+                      <div className={`absolute -left-4 w-3 h-3 rounded-full ${
+                        selectedProposal.trangThai === 'rejected' ? 'bg-red-500' : 'bg-purple-500'
+                      }`}></div>
+                      <p className={`text-sm font-medium ${
+                        selectedProposal.trangThai === 'rejected' ? 'text-red-400' : 'text-purple-400'
+                      }`}>
+                        {selectedProposal.trangThai === 'rejected' ? 'GĐ từ chối' : 'GĐ duyệt'}
+                      </p>
+                      <p className="text-gray-400 text-xs">{new Date(selectedProposal.giamDoc.ngayDuyet).toLocaleString('vi-VN')}</p>
+                      <p className="text-gray-300 text-xs">Bởi: {selectedProposal.giamDoc.tenNV || 'Giám đốc'}</p>
+                    </div>
+                  )}
+
+                  {/* IT duyệt trực tiếp */}
+                  {selectedProposal.trangThai === 'it_approved' && selectedProposal.itXuLy.ngayXuLy && (
+                    <div className="relative">
+                      <div className="absolute -left-4 w-3 h-3 rounded-full bg-green-500"></div>
+                      <p className="text-green-400 text-sm font-medium">IT duyệt trực tiếp</p>
+                      <p className="text-gray-400 text-xs">{new Date(selectedProposal.itXuLy.ngayXuLy).toLocaleString('vi-VN')}</p>
+                      <p className="text-gray-300 text-xs">Bởi: {selectedProposal.itXuLy.tenNV || 'IT'}</p>
+                    </div>
+                  )}
+
+                  {/* IT từ chối */}
+                  {selectedProposal.trangThai === 'it_rejected' && (
+                    <div className="relative">
+                      <div className="absolute -left-4 w-3 h-3 rounded-full bg-red-500"></div>
+                      <p className="text-red-400 text-sm font-medium">IT từ chối</p>
+                      <p className="text-gray-400 text-xs">{selectedProposal.itXuLy.ngayXuLy ? new Date(selectedProposal.itXuLy.ngayXuLy).toLocaleString('vi-VN') : ''}</p>
+                      <p className="text-gray-300 text-xs">Bởi: {selectedProposal.itXuLy.tenNV || 'IT'}</p>
+                    </div>
+                  )}
+
+                  {/* Bước 4: Hoàn thành */}
+                  {selectedProposal.ngayHoanThanh && (
+                    <div className="relative">
+                      <div className="absolute -left-4 w-3 h-3 rounded-full bg-green-500"></div>
+                      <p className="text-green-400 text-sm font-medium">Hoàn thành</p>
+                      <p className="text-gray-400 text-xs">{new Date(selectedProposal.ngayHoanThanh).toLocaleString('vi-VN')}</p>
+                      <p className="text-gray-300 text-xs">Bởi: {selectedProposal.itXuLy.tenNV || 'IT'}</p>
+                    </div>
+                  )}
+
+                  {/* Trạng thái chờ */}
+                  {selectedProposal.trangThai === 'pending' && (
+                    <div className="relative">
+                      <div className="absolute -left-4 w-3 h-3 rounded-full bg-yellow-500 animate-pulse"></div>
+                      <p className="text-yellow-400 text-sm font-medium">Chờ IT xử lý...</p>
+                    </div>
+                  )}
+                  {selectedProposal.trangThai === 'it_processing' && (
+                    <div className="relative">
+                      <div className="absolute -left-4 w-3 h-3 rounded-full bg-blue-500 animate-pulse"></div>
+                      <p className="text-blue-400 text-sm font-medium">IT đang xử lý...</p>
+                    </div>
+                  )}
+                  {selectedProposal.trangThai === 'waiting_approval' && (
+                    <div className="relative">
+                      <div className="absolute -left-4 w-3 h-3 rounded-full bg-purple-500 animate-pulse"></div>
+                      <p className="text-purple-400 text-sm font-medium">Chờ GĐ duyệt...</p>
+                    </div>
+                  )}
+                  {(selectedProposal.trangThai === 'approved' || selectedProposal.trangThai === 'it_approved') && !selectedProposal.ngayHoanThanh && (
+                    <div className="relative">
+                      <div className="absolute -left-4 w-3 h-3 rounded-full bg-green-500 animate-pulse"></div>
+                      <p className="text-green-400 text-sm font-medium">Đã duyệt - Chờ hoàn thành...</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {/* Phản hồi từ IT */}
               <FeedbackTimeline
                 ghiChuIT={selectedProposal.ghiChuIT}
@@ -271,6 +397,13 @@ export default function DirectorProposalsPage() {
 
               {/* Phản hồi đã gửi từ GĐ */}
               <DirectorFeedbackTimeline
+                ghiChuGD={selectedProposal.ghiChuGD}
+                viewerRole="director"
+              />
+
+              {/* Phản hồi từ User */}
+              <UserFeedbackTimeline
+                ghiChuIT={selectedProposal.ghiChuIT}
                 ghiChuGD={selectedProposal.ghiChuGD}
                 viewerRole="director"
               />
@@ -344,32 +477,53 @@ export default function DirectorProposalsPage() {
                 </div>
               )}
 
-              {/* Nếu chờ duyệt -> hiện form duyệt/từ chối */}
+              {/* Nếu chờ duyệt -> hiện nút duyệt/từ chối */}
               {selectedProposal.trangThai === 'waiting_approval' ? (
                 <div className="pt-4 border-t border-[#2e2e2e] space-y-4">
-                  <textarea
-                    value={ghiChu}
-                    onChange={(e) => setGhiChu(e.target.value)}
-                    placeholder="Ghi chú của Giám đốc..."
-                    className="w-full bg-[#2e2e2e] border border-[#3e3e3e] text-white rounded-lg px-4 py-3"
-                    rows={2}
-                  />
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => handleApprove(selectedProposal.maYC)}
-                      disabled={actionLoading}
-                      className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
-                    >
-                      ✓ Duyệt
-                    </button>
-                    <button
-                      onClick={() => handleReject(selectedProposal.maYC)}
-                      disabled={actionLoading}
-                      className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
-                    >
-                      ✗ Từ chối
-                    </button>
-                  </div>
+                  {!showRejectForm ? (
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => handleApprove(selectedProposal.maYC)}
+                        disabled={actionLoading}
+                        className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                      >
+                        ✓ Duyệt
+                      </button>
+                      <button
+                        onClick={() => setShowRejectForm(true)}
+                        disabled={actionLoading}
+                        className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                      >
+                        ✗ Từ chối
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 space-y-3">
+                      <p className="text-red-400 text-sm font-medium">Nhập lý do từ chối:</p>
+                      <textarea
+                        value={ghiChu}
+                        onChange={(e) => setGhiChu(e.target.value)}
+                        placeholder="Lý do từ chối đề xuất..."
+                        className="w-full bg-[#2e2e2e] border border-[#3e3e3e] text-white rounded-lg px-4 py-3"
+                        rows={2}
+                      />
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => handleReject(selectedProposal.maYC)}
+                          disabled={actionLoading || !ghiChu.trim()}
+                          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                        >
+                          Xác nhận từ chối
+                        </button>
+                        <button
+                          onClick={() => { setShowRejectForm(false); setGhiChu('') }}
+                          className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+                        >
+                          Hủy
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 /* Nếu đã xử lý -> hiện kết quả */

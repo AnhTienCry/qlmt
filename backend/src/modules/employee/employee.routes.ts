@@ -186,18 +186,23 @@ router.post('/:id/reset-password', async (req, res) => {
     const { id } = req.params
     
     // Kiểm tra nhân viên tồn tại
-    const nvResult = await db.query<any>(`SELECT MaNV, TenNV FROM NhanVien WHERE MaNV = @id`, { id: parseInt(id) })
+    const nvResult = await db.query<any>(`SELECT MaNV, MaNVText, TenNV FROM NhanVien WHERE MaNV = @id`, { id: parseInt(id) })
     if (nvResult.recordset.length === 0) {
       return res.status(404).json({ error: 'Không tìm thấy nhân viên' })
     }
     
     const maNV = nvResult.recordset[0].MaNV
-    const username = `nv${maNV}`
-    const matKhauMoi = `nv${maNV}@123`
-    const hashedPassword = await bcrypt.hash(matKhauMoi, 10)
+    const maNVText = nvResult.recordset[0].MaNVText
     
     // Kiểm tra user đã tồn tại chưa
-    const userResult = await db.query<any>(`SELECT UserId FROM Users WHERE MaNV = @maNV`, { maNV })
+    const userResult = await db.query<any>(`SELECT UserId, Username FROM Users WHERE MaNV = @maNV`, { maNV })
+    
+    // Sử dụng username hiện có hoặc tạo mới từ MaNVText
+    const username = userResult.recordset.length > 0 
+      ? userResult.recordset[0].Username 
+      : (maNVText?.toLowerCase() || `nv${maNV}`)
+    const matKhauMoi = `${username}@123`
+    const hashedPassword = await bcrypt.hash(matKhauMoi, 10)
     
     if (userResult.recordset.length > 0) {
       // Cập nhật mật khẩu
@@ -206,13 +211,19 @@ router.post('/:id/reset-password', async (req, res) => {
         maNV
       })
     } else {
+      // Lấy role từ phòng ban
+      const pbResult = await db.query<any>(`SELECT pb.TenPB FROM NhanVien nv JOIN PhongBan pb ON nv.MaPB = pb.MaPB WHERE nv.MaNV = @maNV`, { maNV })
+      const tenPB = pbResult.recordset[0]?.TenPB || null
+      const role = getRoleFromPhongBan(tenPB)
+      
       // Tạo user mới
       await db.query(`
         INSERT INTO Users (Username, PasswordHash, Role, MaNV, IsActive)
-        VALUES (@username, @password, 'user', @maNV, 1)
+        VALUES (@username, @password, @role, @maNV, 1)
       `, {
         username,
         password: hashedPassword,
+        role,
         maNV
       })
     }

@@ -194,6 +194,80 @@ class StockController {
       res.status(500).json({ success: false, message: error.message })
     }
   }
+
+  // ==================== THIẾT BỊ CỦA USER ====================
+
+  async getThietBiCuaUser(req: Request, res: Response) {
+    try {
+      const userId = req.userId
+      if (!userId) {
+        return res.status(401).json({ success: false, message: 'Chưa đăng nhập' })
+      }
+      const data = await stockService.getThietBiCuaUser(userId)
+      res.json({ success: true, data })
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message })
+    }
+  }
+
+  // ==================== BÁO CÁO MỞ RỘNG ====================
+
+  async getBaoCaoNhapKho(req: Request, res: Response) {
+    try {
+      const { tuNgay, denNgay, maKho, nguoiGiao } = req.query
+      const data = await stockService.getBaoCaoNhapKho(
+        tuNgay as string,
+        denNgay as string,
+        maKho ? parseInt(maKho as string) : undefined,
+        nguoiGiao ? parseInt(nguoiGiao as string) : undefined
+      )
+      res.json({ success: true, data })
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message })
+    }
+  }
+
+  async getBaoCaoXuatKho(req: Request, res: Response) {
+    try {
+      const { tuNgay, denNgay, maKho, nguoiGiao, nguoiNhan } = req.query
+      const data = await stockService.getBaoCaoXuatKho(
+        tuNgay as string,
+        denNgay as string,
+        maKho ? parseInt(maKho as string) : undefined,
+        nguoiGiao ? parseInt(nguoiGiao as string) : undefined,
+        nguoiNhan ? parseInt(nguoiNhan as string) : undefined
+      )
+      res.json({ success: true, data })
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message })
+    }
+  }
+
+  async getTheoDoiThietBi(req: Request, res: Response) {
+    try {
+      const maHang = parseInt(req.params.maHang)
+      if (!maHang) {
+        return res.status(400).json({ success: false, message: 'Thiếu mã hàng' })
+      }
+      const data = await stockService.getTheoDoiThietBi(maHang)
+      res.json({ success: true, data: data || null })
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message })
+    }
+  }
+
+  async getThietBiCuaNhanVien(req: Request, res: Response) {
+    try {
+      const maNV = parseInt(req.params.maNV)
+      if (!maNV) {
+        return res.status(400).json({ success: false, message: 'Thiếu mã nhân viên' })
+      }
+      const data = await stockService.getThietBiCuaNhanVien(maNV)
+      res.json({ success: true, data })
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message })
+    }
+  }
 }
 
 export default new StockController()

@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import api from '@/libs/axios'
-import { Download, FileSpreadsheet, Search } from 'lucide-react'
-import { exportBaoCaoNhapXuatTon } from '@/libs/excel'
+import { Download, FileSpreadsheet, Search, Package, History } from 'lucide-react'
+import { exportBaoCaoNhapXuatTon, exportToExcel } from '@/libs/excel'
 
 interface BaoCaoItem {
   MaHang: string
@@ -12,98 +12,334 @@ interface BaoCaoItem {
   Ton: number
 }
 
+interface NhapKhoItem {
+  SoPhieuN: string
+  NgayNhap: string
+  MaHang: string
+  TenHang: string
+  TenKho: string
+  TenNCC: string
+  TenNguoiNhan: string
+  SoLuong: number
+  DonGia: number
+  DienGiai: string
+}
+
+interface XuatKhoItem {
+  SoPhieuX: string
+  NgayXuat: string
+  MaHang: string
+  TenHang: string
+  TenKho: string
+  TenNguoiGiao: string
+  TenNguoiNhan: string
+  SoLuong: number
+  DonGia: number
+  DienGiai: string
+}
+
+interface LichSuThietBi {
+  LoaiNV: string
+  NgayGD: string
+  SoPhieu: string
+  TuKho: string
+  DenKho: string
+  NguoiGiao: string
+  NguoiNhan: string
+  SoLuong: number
+  DienGiai: string
+}
+
+interface HangHoa {
+  MaHang: number
+  MaTS: string
+  TenHang: string
+}
+
+interface Kho {
+  MaKho: number
+  TenKho: string
+}
+
+interface NhanVien {
+  MaNV: number
+  TenNV: string
+}
+
+interface NCC {
+  MaNCC: number
+  TenNCC: string
+}
+
+type TabType = 'nhapxuatton' | 'nhapkho' | 'xuatkho' | 'theodoi'
+
 const ReportPage = () => {
-  const [data, setData] = useState<BaoCaoItem[]>([])
+  const [activeTab, setActiveTab] = useState<TabType>('nhapxuatton')
   const [loading, setLoading] = useState(false)
   
-  // Mặc định từ đầu tháng đến hôm nay
+  // Filters
   const today = new Date()
   const firstDayOfMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`
   const todayStr = today.toISOString().split('T')[0]
-  
   const [tuNgay, setTuNgay] = useState(firstDayOfMonth)
   const [denNgay, setDenNgay] = useState(todayStr)
+  const [maKho, setMaKho] = useState<number | undefined>()
+  const [nguoiGiao, setNguoiGiao] = useState<number | undefined>()
+  const [nguoiNhan, setNguoiNhan] = useState<number | undefined>()
+  const [maHang, setMaHang] = useState<number | undefined>()
+
+  // Data
+  const [dataBC, setDataBC] = useState<BaoCaoItem[]>([])
+  const [dataNhap, setDataNhap] = useState<NhapKhoItem[]>([])
+  const [dataXuat, setDataXuat] = useState<XuatKhoItem[]>([])
+  const [lichSu, setLichSu] = useState<LichSuThietBi[]>([])
+  const [thietBiInfo, setThietBiInfo] = useState<any>(null)
   const [hasSearched, setHasSearched] = useState(false)
 
-  const handleSearch = async () => {
+  // Lookup data
+  const [hangHoas, setHangHoas] = useState<HangHoa[]>([])
+  const [khos, setKhos] = useState<Kho[]>([])
+  const [nhanViens, setNhanViens] = useState<NhanVien[]>([])
+  const [nccs, setNccs] = useState<NCC[]>([])
+
+  useEffect(() => {
+    fetchLookupData()
+  }, [])
+
+  const fetchLookupData = async () => {
     try {
-      setLoading(true)
-      const res = await api.get('/stock/baocao/nhapxuatton', {
-        params: { tuNgay, denNgay }
-      })
-      setData(res.data?.data || [])
-      setHasSearched(true)
+      const [hhRes, khoRes, nvRes, nccRes] = await Promise.all([
+        api.get('/hanghoa'),
+        api.get('/warehouses'),
+        api.get('/employees'),
+        api.get('/ncc'),
+      ])
+      setHangHoas(hhRes.data?.data || [])
+      setKhos(khoRes.data?.data || [])
+      setNhanViens(nvRes.data?.data || [])
+      setNccs(nccRes.data?.data || [])
+    } catch (error) {
+      console.error('Error fetching lookup:', error)
+    }
+  }
+
+  const handleSearch = async () => {
+    setLoading(true)
+    setHasSearched(true)
+    try {
+      switch (activeTab) {
+        case 'nhapxuatton': {
+          const res = await api.get('/stock/baocao/nhapxuatton', { params: { tuNgay, denNgay } })
+          setDataBC(res.data?.data || [])
+          break
+        }
+        case 'nhapkho': {
+          const res = await api.get('/stock/baocao/nhapkho', {
+            params: { tuNgay, denNgay, maKho, nguoiGiao }
+          })
+          setDataNhap(res.data?.data || [])
+          break
+        }
+        case 'xuatkho': {
+          const res = await api.get('/stock/baocao/xuatkho', {
+            params: { tuNgay, denNgay, maKho, nguoiGiao, nguoiNhan }
+          })
+          setDataXuat(res.data?.data || [])
+          break
+        }
+        case 'theodoi': {
+          if (!maHang) {
+            alert('Vui lòng chọn thiết bị')
+            setLoading(false)
+            return
+          }
+          const res = await api.get(`/stock/baocao/theodoi/${maHang}`)
+          if (res.data?.data) {
+            setThietBiInfo(res.data.data.thietBi)
+            setLichSu(res.data.data.lichSu || [])
+          }
+          break
+        }
+      }
     } catch (error) {
       console.error('Error fetching report:', error)
-      setData([])
     } finally {
       setLoading(false)
     }
   }
 
   const handleExport = () => {
-    if (data.length === 0) {
-      alert('Không có dữ liệu để xuất')
-      return
+    switch (activeTab) {
+      case 'nhapxuatton':
+        if (dataBC.length === 0) return alert('Không có dữ liệu')
+        exportBaoCaoNhapXuatTon(dataBC, tuNgay, denNgay)
+        break
+      case 'nhapkho':
+        if (dataNhap.length === 0) return alert('Không có dữ liệu')
+        exportToExcel(dataNhap.map((d, i) => ({
+          stt: i + 1, soPhieu: d.SoPhieuN, ngay: new Date(d.NgayNhap).toLocaleDateString('vi-VN'),
+          maHang: d.MaHang, tenHang: d.TenHang, kho: d.TenKho, ncc: d.TenNCC,
+          nguoiNhan: d.TenNguoiNhan, soLuong: d.SoLuong, donGia: d.DonGia
+        })), [
+          { key: 'stt', title: 'STT' }, { key: 'soPhieu', title: 'Số phiếu' },
+          { key: 'ngay', title: 'Ngày nhập' }, { key: 'maHang', title: 'Mã hàng' },
+          { key: 'tenHang', title: 'Tên hàng' }, { key: 'kho', title: 'Kho' },
+          { key: 'ncc', title: 'NCC' }, { key: 'nguoiNhan', title: 'Người nhận' },
+          { key: 'soLuong', title: 'SL' }, { key: 'donGia', title: 'Đơn giá' }
+        ], { filename: `BaoCaoNhapKho_${tuNgay}_${denNgay}` })
+        break
+      case 'xuatkho':
+        if (dataXuat.length === 0) return alert('Không có dữ liệu')
+        exportToExcel(dataXuat.map((d, i) => ({
+          stt: i + 1, soPhieu: d.SoPhieuX, ngay: new Date(d.NgayXuat).toLocaleDateString('vi-VN'),
+          maHang: d.MaHang, tenHang: d.TenHang, kho: d.TenKho, nguoiGiao: d.TenNguoiGiao,
+          nguoiNhan: d.TenNguoiNhan, soLuong: d.SoLuong, donGia: d.DonGia
+        })), [
+          { key: 'stt', title: 'STT' }, { key: 'soPhieu', title: 'Số phiếu' },
+          { key: 'ngay', title: 'Ngày xuất' }, { key: 'maHang', title: 'Mã hàng' },
+          { key: 'tenHang', title: 'Tên hàng' }, { key: 'kho', title: 'Kho' },
+          { key: 'nguoiGiao', title: 'Người giao' }, { key: 'nguoiNhan', title: 'Người nhận' },
+          { key: 'soLuong', title: 'SL' }, { key: 'donGia', title: 'Đơn giá' }
+        ], { filename: `BaoCaoXuatKho_${tuNgay}_${denNgay}` })
+        break
     }
-    exportBaoCaoNhapXuatTon(data, tuNgay, denNgay)
   }
 
-  // Tính tổng
+  const getLoaiNVBadge = (loai: string) => {
+    const map: Record<string, { label: string; color: string }> = {
+      'NHAP': { label: 'Nhập kho', color: 'bg-green-500/20 text-green-400' },
+      'XUAT': { label: 'Xuất kho', color: 'bg-red-500/20 text-red-400' },
+      'DIEU_CHUYEN': { label: 'Điều chuyển', color: 'bg-blue-500/20 text-blue-400' },
+    }
+    const info = map[loai] || { label: loai, color: 'bg-gray-500/20 text-gray-400' }
+    return <span className={`px-2 py-1 rounded-full text-xs ${info.color}`}>{info.label}</span>
+  }
+
+  const tabs = [
+    { id: 'nhapxuatton', label: 'Nhập xuất tồn', icon: FileSpreadsheet },
+    { id: 'nhapkho', label: 'Báo cáo nhập kho', icon: Package },
+    { id: 'xuatkho', label: 'Báo cáo xuất kho', icon: Package },
+    { id: 'theodoi', label: 'Theo dõi thiết bị', icon: History },
+  ]
+
+  // Tính tổng NXT
   const totals = {
-    dauKy: data.reduce((sum, item) => sum + (item.DauKy || 0), 0),
-    nhap: data.reduce((sum, item) => sum + (item.Nhap || 0), 0),
-    xuat: data.reduce((sum, item) => sum + (item.Xuat || 0), 0),
-    ton: data.reduce((sum, item) => sum + (item.Ton || 0), 0),
+    dauKy: dataBC.reduce((sum, item) => sum + (item.DauKy || 0), 0),
+    nhap: dataBC.reduce((sum, item) => sum + (item.Nhap || 0), 0),
+    xuat: dataBC.reduce((sum, item) => sum + (item.Xuat || 0), 0),
+    ton: dataBC.reduce((sum, item) => sum + (item.Ton || 0), 0),
   }
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-semibold text-white flex items-center gap-2">
-            <FileSpreadsheet className="w-6 h-6 text-blue-500" />
-            Báo cáo nhập xuất tồn
-          </h1>
-          <p className="text-gray-500 text-sm mt-1">Xem báo cáo nhập xuất tồn kho theo khoảng thời gian</p>
-        </div>
+      <div>
+        <h1 className="text-xl font-semibold text-white flex items-center gap-2">
+          <FileSpreadsheet className="w-6 h-6 text-blue-500" />
+          Báo cáo
+        </h1>
+        <p className="text-gray-500 text-sm mt-1">Xem các loại báo cáo nhập xuất kho</p>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-2 border-b border-[#2e2e2e] pb-2 overflow-x-auto">
+        {tabs.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => { setActiveTab(tab.id as TabType); setHasSearched(false) }}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition whitespace-nowrap ${
+              activeTab === tab.id 
+                ? 'bg-blue-600 text-white' 
+                : 'bg-[#1a1a1a] text-gray-400 hover:bg-[#2e2e2e]'
+            }`}
+          >
+            <tab.icon className="w-4 h-4" />
+            {tab.label}
+          </button>
+        ))}
       </div>
 
       {/* Filter */}
       <div className="bg-[#1a1a1a] border border-[#2e2e2e] rounded-xl p-4">
         <div className="flex flex-wrap items-end gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">Từ ngày</label>
-            <input
-              type="date"
-              value={tuNgay}
-              onChange={(e) => setTuNgay(e.target.value)}
-              className="px-3 py-2 bg-[#0f0f0f] border border-[#2e2e2e] rounded-lg text-white focus:outline-none focus:border-blue-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">Đến ngày</label>
-            <input
-              type="date"
-              value={denNgay}
-              onChange={(e) => setDenNgay(e.target.value)}
-              className="px-3 py-2 bg-[#0f0f0f] border border-[#2e2e2e] rounded-lg text-white focus:outline-none focus:border-blue-500"
-            />
-          </div>
-          <button
-            onClick={handleSearch}
-            disabled={loading}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg transition"
-          >
+          {activeTab !== 'theodoi' && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Từ ngày</label>
+                <input type="date" value={tuNgay} onChange={(e) => setTuNgay(e.target.value)}
+                  className="px-3 py-2 bg-[#0f0f0f] border border-[#2e2e2e] rounded-lg text-white focus:outline-none focus:border-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Đến ngày</label>
+                <input type="date" value={denNgay} onChange={(e) => setDenNgay(e.target.value)}
+                  className="px-3 py-2 bg-[#0f0f0f] border border-[#2e2e2e] rounded-lg text-white focus:outline-none focus:border-blue-500" />
+              </div>
+            </>
+          )}
+
+          {(activeTab === 'nhapkho' || activeTab === 'xuatkho') && (
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-1">Kho</label>
+              <select value={maKho || ''} onChange={(e) => setMaKho(e.target.value ? parseInt(e.target.value) : undefined)}
+                className="px-3 py-2 bg-[#0f0f0f] border border-[#2e2e2e] rounded-lg text-white focus:outline-none focus:border-blue-500 min-w-[150px]">
+                <option value="">Tất cả</option>
+                {khos.map(k => <option key={k.MaKho} value={k.MaKho}>{k.TenKho}</option>)}
+              </select>
+            </div>
+          )}
+
+          {activeTab === 'nhapkho' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-1">NCC</label>
+              <select value={nguoiGiao || ''} onChange={(e) => setNguoiGiao(e.target.value ? parseInt(e.target.value) : undefined)}
+                className="px-3 py-2 bg-[#0f0f0f] border border-[#2e2e2e] rounded-lg text-white focus:outline-none focus:border-blue-500 min-w-[150px]">
+                <option value="">Tất cả</option>
+                {nccs.map(n => <option key={n.MaNCC} value={n.MaNCC}>{n.TenNCC}</option>)}
+              </select>
+            </div>
+          )}
+
+          {activeTab === 'xuatkho' && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Người giao</label>
+                <select value={nguoiGiao || ''} onChange={(e) => setNguoiGiao(e.target.value ? parseInt(e.target.value) : undefined)}
+                  className="px-3 py-2 bg-[#0f0f0f] border border-[#2e2e2e] rounded-lg text-white focus:outline-none focus:border-blue-500 min-w-[150px]">
+                  <option value="">Tất cả</option>
+                  {nhanViens.map(n => <option key={n.MaNV} value={n.MaNV}>{n.TenNV}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Người nhận</label>
+                <select value={nguoiNhan || ''} onChange={(e) => setNguoiNhan(e.target.value ? parseInt(e.target.value) : undefined)}
+                  className="px-3 py-2 bg-[#0f0f0f] border border-[#2e2e2e] rounded-lg text-white focus:outline-none focus:border-blue-500 min-w-[150px]">
+                  <option value="">Tất cả</option>
+                  {nhanViens.map(n => <option key={n.MaNV} value={n.MaNV}>{n.TenNV}</option>)}
+                </select>
+              </div>
+            </>
+          )}
+
+          {activeTab === 'theodoi' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-1">Chọn thiết bị</label>
+              <select value={maHang || ''} onChange={(e) => setMaHang(e.target.value ? parseInt(e.target.value) : undefined)}
+                className="px-3 py-2 bg-[#0f0f0f] border border-[#2e2e2e] rounded-lg text-white focus:outline-none focus:border-blue-500 min-w-[250px]">
+                <option value="">-- Chọn thiết bị --</option>
+                {hangHoas.map(h => <option key={h.MaHang} value={h.MaHang}>{h.MaTS} - {h.TenHang}</option>)}
+              </select>
+            </div>
+          )}
+
+          <button onClick={handleSearch} disabled={loading}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg transition">
             <Search className="w-4 h-4" />
             {loading ? 'Đang tải...' : 'Xem báo cáo'}
           </button>
-          {data.length > 0 && (
-            <button
-              onClick={handleExport}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition"
-            >
+
+          {hasSearched && activeTab !== 'theodoi' && (
+            <button onClick={handleExport}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition">
               <Download className="w-4 h-4" />
               Xuất Excel
             </button>
@@ -111,69 +347,190 @@ const ReportPage = () => {
         </div>
       </div>
 
-      {/* Report Table */}
+      {/* Report Content */}
       {hasSearched && (
         <div className="bg-[#1a1a1a] border border-[#2e2e2e] rounded-xl overflow-hidden">
-          {/* Report Header */}
-          <div className="p-4 border-b border-[#2e2e2e] text-center">
-            <h2 className="text-lg font-semibold text-white">BÁO CÁO NHẬP XUẤT TỒN</h2>
-            <p className="text-gray-400 text-sm mt-1">
-              Từ ngày {new Date(tuNgay).toLocaleDateString('vi-VN')} đến ngày {new Date(denNgay).toLocaleDateString('vi-VN')}
-            </p>
-          </div>
+          {activeTab === 'nhapxuatton' && (
+            <>
+              <div className="p-4 border-b border-[#2e2e2e] text-center">
+                <h2 className="text-lg font-semibold text-white">BÁO CÁO NHẬP XUẤT TỒN</h2>
+                <p className="text-gray-400 text-sm mt-1">
+                  Từ {new Date(tuNgay).toLocaleDateString('vi-VN')} đến {new Date(denNgay).toLocaleDateString('vi-VN')}
+                </p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-[#2e2e2e] bg-[#0f0f0f]">
+                      <th className="text-center px-4 py-3 text-xs font-medium text-gray-400 uppercase w-16">STT</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Mã hàng</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Tên hàng</th>
+                      <th className="text-center px-4 py-3 text-xs font-medium text-gray-400 uppercase w-24">Đầu kỳ</th>
+                      <th className="text-center px-4 py-3 text-xs font-medium text-gray-400 uppercase w-24">Nhập</th>
+                      <th className="text-center px-4 py-3 text-xs font-medium text-gray-400 uppercase w-24">Xuất</th>
+                      <th className="text-center px-4 py-3 text-xs font-medium text-gray-400 uppercase w-24">Tồn</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#2e2e2e]">
+                    {dataBC.length === 0 ? (
+                      <tr><td colSpan={7} className="px-6 py-16 text-center text-gray-400">Không có dữ liệu</td></tr>
+                    ) : (
+                      <>
+                        {dataBC.map((item, index) => (
+                          <tr key={item.MaHang} className="hover:bg-[#252525]">
+                            <td className="px-4 py-3 text-sm text-gray-300 text-center">{index + 1}</td>
+                            <td className="px-4 py-3 text-sm text-white font-medium">{item.MaHang}</td>
+                            <td className="px-4 py-3 text-sm text-gray-300">{item.TenHang}</td>
+                            <td className="px-4 py-3 text-sm text-gray-300 text-center">{item.DauKy}</td>
+                            <td className="px-4 py-3 text-sm text-green-400 text-center font-medium">{item.Nhap > 0 ? `+${item.Nhap}` : item.Nhap}</td>
+                            <td className="px-4 py-3 text-sm text-red-400 text-center font-medium">{item.Xuat > 0 ? `-${item.Xuat}` : item.Xuat}</td>
+                            <td className="px-4 py-3 text-sm text-blue-400 text-center font-semibold">{item.Ton}</td>
+                          </tr>
+                        ))}
+                        <tr className="bg-[#0f0f0f] font-semibold">
+                          <td className="px-4 py-3 text-sm text-white text-center" colSpan={3}>TỔNG CỘNG</td>
+                          <td className="px-4 py-3 text-sm text-white text-center">{totals.dauKy}</td>
+                          <td className="px-4 py-3 text-sm text-green-400 text-center">{totals.nhap}</td>
+                          <td className="px-4 py-3 text-sm text-red-400 text-center">{totals.xuat}</td>
+                          <td className="px-4 py-3 text-sm text-blue-400 text-center">{totals.ton}</td>
+                        </tr>
+                      </>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
 
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-[#2e2e2e] bg-[#0f0f0f]">
-                  <th className="text-center px-4 py-3 text-xs font-medium text-gray-400 uppercase w-16">STT</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Mã hàng</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Tên hàng</th>
-                  <th className="text-center px-4 py-3 text-xs font-medium text-gray-400 uppercase w-24">Đầu kỳ</th>
-                  <th className="text-center px-4 py-3 text-xs font-medium text-gray-400 uppercase w-24">Nhập</th>
-                  <th className="text-center px-4 py-3 text-xs font-medium text-gray-400 uppercase w-24">Xuất</th>
-                  <th className="text-center px-4 py-3 text-xs font-medium text-gray-400 uppercase w-24">Tồn</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#2e2e2e]">
-                {data.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="px-6 py-16 text-center">
-                      <FileSpreadsheet className="w-12 h-12 mx-auto mb-3 text-gray-600" />
-                      <p className="text-gray-400 font-medium">Không có dữ liệu</p>
-                      <p className="text-gray-500 text-sm mt-1">Chưa có giao dịch nhập xuất trong khoảng thời gian này</p>
-                    </td>
-                  </tr>
-                ) : (
-                  <>
-                    {data.map((item, index) => (
-                      <tr key={item.MaHang} className="hover:bg-[#252525] transition">
-                        <td className="px-4 py-3 text-sm text-gray-300 text-center">{index + 1}</td>
-                        <td className="px-4 py-3 text-sm text-white font-medium">{item.MaHang}</td>
-                        <td className="px-4 py-3 text-sm text-gray-300">{item.TenHang}</td>
-                        <td className="px-4 py-3 text-sm text-gray-300 text-center">{item.DauKy}</td>
-                        <td className="px-4 py-3 text-sm text-green-400 text-center font-medium">
-                          {item.Nhap > 0 ? `+${item.Nhap}` : item.Nhap}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-red-400 text-center font-medium">
-                          {item.Xuat > 0 ? `-${item.Xuat}` : item.Xuat}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-blue-400 text-center font-semibold">{item.Ton}</td>
+          {activeTab === 'nhapkho' && (
+            <>
+              <div className="p-4 border-b border-[#2e2e2e] text-center">
+                <h2 className="text-lg font-semibold text-white">BÁO CÁO NHẬP KHO</h2>
+                <p className="text-gray-400 text-sm mt-1">
+                  Từ {new Date(tuNgay).toLocaleDateString('vi-VN')} đến {new Date(denNgay).toLocaleDateString('vi-VN')}
+                </p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-[#2e2e2e] bg-[#0f0f0f]">
+                      <th className="text-center px-4 py-3 text-xs font-medium text-gray-400 uppercase">STT</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Số phiếu</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Ngày nhập</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Hàng hóa</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Kho</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">NCC</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Người nhận</th>
+                      <th className="text-center px-4 py-3 text-xs font-medium text-gray-400 uppercase">SL</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#2e2e2e]">
+                    {dataNhap.length === 0 ? (
+                      <tr><td colSpan={8} className="px-6 py-16 text-center text-gray-400">Không có dữ liệu</td></tr>
+                    ) : dataNhap.map((item, idx) => (
+                      <tr key={idx} className="hover:bg-[#252525]">
+                        <td className="px-4 py-3 text-sm text-gray-300 text-center">{idx + 1}</td>
+                        <td className="px-4 py-3 text-sm text-white font-medium">{item.SoPhieuN}</td>
+                        <td className="px-4 py-3 text-sm text-gray-300">{new Date(item.NgayNhap).toLocaleDateString('vi-VN')}</td>
+                        <td className="px-4 py-3 text-sm text-gray-300">{item.MaHang} - {item.TenHang}</td>
+                        <td className="px-4 py-3 text-sm text-gray-300">{item.TenKho}</td>
+                        <td className="px-4 py-3 text-sm text-gray-300">{item.TenNCC || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-300">{item.TenNguoiNhan || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-green-400 text-center font-medium">{item.SoLuong}</td>
                       </tr>
                     ))}
-                    {/* Tổng cộng */}
-                    <tr className="bg-[#0f0f0f] font-semibold">
-                      <td className="px-4 py-3 text-sm text-white text-center" colSpan={3}>TỔNG CỘNG</td>
-                      <td className="px-4 py-3 text-sm text-white text-center">{totals.dauKy}</td>
-                      <td className="px-4 py-3 text-sm text-green-400 text-center">{totals.nhap}</td>
-                      <td className="px-4 py-3 text-sm text-red-400 text-center">{totals.xuat}</td>
-                      <td className="px-4 py-3 text-sm text-blue-400 text-center">{totals.ton}</td>
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
+          {activeTab === 'xuatkho' && (
+            <>
+              <div className="p-4 border-b border-[#2e2e2e] text-center">
+                <h2 className="text-lg font-semibold text-white">BÁO CÁO XUẤT KHO</h2>
+                <p className="text-gray-400 text-sm mt-1">
+                  Từ {new Date(tuNgay).toLocaleDateString('vi-VN')} đến {new Date(denNgay).toLocaleDateString('vi-VN')}
+                </p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-[#2e2e2e] bg-[#0f0f0f]">
+                      <th className="text-center px-4 py-3 text-xs font-medium text-gray-400 uppercase">STT</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Số phiếu</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Ngày xuất</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Hàng hóa</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Kho</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Người giao</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Người nhận</th>
+                      <th className="text-center px-4 py-3 text-xs font-medium text-gray-400 uppercase">SL</th>
                     </tr>
-                  </>
-                )}
-              </tbody>
-            </table>
-          </div>
+                  </thead>
+                  <tbody className="divide-y divide-[#2e2e2e]">
+                    {dataXuat.length === 0 ? (
+                      <tr><td colSpan={8} className="px-6 py-16 text-center text-gray-400">Không có dữ liệu</td></tr>
+                    ) : dataXuat.map((item, idx) => (
+                      <tr key={idx} className="hover:bg-[#252525]">
+                        <td className="px-4 py-3 text-sm text-gray-300 text-center">{idx + 1}</td>
+                        <td className="px-4 py-3 text-sm text-white font-medium">{item.SoPhieuX}</td>
+                        <td className="px-4 py-3 text-sm text-gray-300">{new Date(item.NgayXuat).toLocaleDateString('vi-VN')}</td>
+                        <td className="px-4 py-3 text-sm text-gray-300">{item.MaHang} - {item.TenHang}</td>
+                        <td className="px-4 py-3 text-sm text-gray-300">{item.TenKho}</td>
+                        <td className="px-4 py-3 text-sm text-gray-300">{item.TenNguoiGiao || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-300">{item.TenNguoiNhan || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-red-400 text-center font-medium">{item.SoLuong}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
+          {activeTab === 'theodoi' && thietBiInfo && (
+            <>
+              <div className="p-4 border-b border-[#2e2e2e]">
+                <h2 className="text-lg font-semibold text-white">THEO DÕI THIẾT BỊ</h2>
+                <div className="mt-2 flex gap-4 text-sm">
+                  <span className="text-gray-400">Mã: <span className="text-white">{thietBiInfo.MaTS}</span></span>
+                  <span className="text-gray-400">Tên: <span className="text-white">{thietBiInfo.TenHang}</span></span>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-[#2e2e2e] bg-[#0f0f0f]">
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Loại</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Ngày</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Số phiếu</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Từ kho</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Đến kho</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Người giao</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Người nhận</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Ghi chú</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#2e2e2e]">
+                    {lichSu.length === 0 ? (
+                      <tr><td colSpan={8} className="px-6 py-16 text-center text-gray-400">Chưa có lịch sử</td></tr>
+                    ) : lichSu.map((item, idx) => (
+                      <tr key={idx} className="hover:bg-[#252525]">
+                        <td className="px-4 py-3">{getLoaiNVBadge(item.LoaiNV)}</td>
+                        <td className="px-4 py-3 text-sm text-gray-300">{new Date(item.NgayGD).toLocaleDateString('vi-VN')}</td>
+                        <td className="px-4 py-3 text-sm text-white font-medium">{item.SoPhieu}</td>
+                        <td className="px-4 py-3 text-sm text-gray-300">{item.TuKho || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-300">{item.DenKho || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-300">{item.NguoiGiao || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-300">{item.NguoiNhan || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-400">{item.DienGiai || '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -181,9 +538,13 @@ const ReportPage = () => {
       {!hasSearched && (
         <div className="bg-[#1a1a1a] border border-[#2e2e2e] rounded-xl p-8 text-center">
           <FileSpreadsheet className="w-16 h-16 mx-auto mb-4 text-gray-600" />
-          <h3 className="text-lg font-medium text-white mb-2">Chọn khoảng thời gian để xem báo cáo</h3>
+          <h3 className="text-lg font-medium text-white mb-2">
+            {activeTab === 'theodoi' ? 'Chọn thiết bị để xem lịch sử' : 'Chọn khoảng thời gian để xem báo cáo'}
+          </h3>
           <p className="text-gray-500">
-            Chọn ngày bắt đầu và ngày kết thúc, sau đó nhấn "Xem báo cáo" để xem báo cáo nhập xuất tồn kho.
+            {activeTab === 'theodoi' 
+              ? 'Chọn thiết bị từ danh sách, sau đó nhấn "Xem báo cáo" để xem toàn bộ lịch sử nghiệp vụ.' 
+              : 'Chọn ngày bắt đầu và ngày kết thúc, sau đó nhấn "Xem báo cáo" để xem chi tiết.'}
           </p>
         </div>
       )}

@@ -1,20 +1,58 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { createProposal } from '@/libs/proposal'
 import { CreateProposalRequest, ProposalType, PriorityLevel } from '@/types/proposal.types'
 import { ROUTES } from '@/constants'
+import api from '@/libs/axios'
+import { useAuth } from '@/hooks/useAuth'
+
+interface ThietBiNhanVien {
+  MaHang: number
+  MaTS: string
+  TenHang: string
+  MaNhom: string
+  TenNhom: string
+  NgayXuat: string
+  TuKho: string
+}
 
 export default function NewProposalPage() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [loading, setLoading] = useState(false)
+  const [loadingDevices, setLoadingDevices] = useState(false)
   const [error, setError] = useState('')
+  const [thietBis, setThietBis] = useState<ThietBiNhanVien[]>([])
   const [formData, setFormData] = useState<CreateProposalRequest>({
     loaiYC: 'sua_chua',
     tieuDe: '',
     moTa: '',
     lyDo: '',
     mucDoUuTien: 'Trung bình',
+    maHang: undefined,
   })
+
+  // Load thiết bị đã cấp cho NV khi component mount
+  useEffect(() => {
+    if (user?.maNV) {
+      fetchThietBiCuaNhanVien()
+    }
+  }, [user?.maNV])
+
+  const fetchThietBiCuaNhanVien = async () => {
+    setLoadingDevices(true)
+    try {
+      const res = await api.get(`/stock/baocao/thietbi-nhanvien/${user?.maNV}`)
+      setThietBis(res.data?.data || [])
+    } catch (err) {
+      console.error('Error fetching devices:', err)
+    } finally {
+      setLoadingDevices(false)
+    }
+  }
+
+  // Kiểm tra có phải loại cần chọn thiết bị không
+  const requiresDevice = ['sua_chua', 'nang_cap', 'thay_the'].includes(formData.loaiYC)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -64,6 +102,42 @@ export default function NewProposalPage() {
             <option value="thay_the">Thay thế</option>
           </select>
         </div>
+
+        {/* Chọn thiết bị - chỉ hiện khi là sửa chữa/nâng cấp/thay thế */}
+        {requiresDevice && (
+          <div>
+            <label className="block text-gray-300 mb-2">
+              Chọn thiết bị đã được cấp {formData.loaiYC !== 'mua_moi' && <span className="text-yellow-500 text-sm">(Khuyến nghị)</span>}
+            </label>
+            {loadingDevices ? (
+              <div className="w-full bg-[#2e2e2e] border border-[#3e3e3e] rounded-lg px-4 py-3 text-gray-400">
+                Đang tải danh sách thiết bị...
+              </div>
+            ) : thietBis.length === 0 ? (
+              <div className="w-full bg-[#2e2e2e] border border-[#3e3e3e] rounded-lg px-4 py-3 text-gray-400">
+                Bạn chưa được cấp thiết bị nào
+              </div>
+            ) : (
+              <select
+                value={formData.maHang || ''}
+                onChange={(e) => setFormData({ ...formData, maHang: e.target.value ? parseInt(e.target.value) : undefined })}
+                className="w-full bg-[#2e2e2e] border border-[#3e3e3e] text-white rounded-lg px-4 py-3 focus:outline-none focus:border-green-500"
+              >
+                <option value="">-- Chọn thiết bị --</option>
+                {thietBis.map(tb => (
+                  <option key={tb.MaHang} value={tb.MaHang}>
+                    {tb.MaTS} - {tb.TenHang} ({tb.TenNhom})
+                  </option>
+                ))}
+              </select>
+            )}
+            {thietBis.length > 0 && (
+              <p className="text-gray-500 text-sm mt-1">
+                Chọn thiết bị bạn muốn {formData.loaiYC === 'sua_chua' ? 'sửa chữa' : formData.loaiYC === 'nang_cap' ? 'nâng cấp' : 'thay thế'}
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Tiêu đề */}
         <div>

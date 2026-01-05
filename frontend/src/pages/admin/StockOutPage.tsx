@@ -10,18 +10,22 @@ interface XuatHang {
   NgayXuat: string
   MaHang: number
   TenHang?: string
+  MaHangText?: string
   MaKho: number
   TenKho?: string
+  MaKhoText?: string
   NguoiGiao: number
   TenNguoiGiao?: string
+  MaNVGiao?: string
   NguoiNhan: number
   TenNguoiNhan?: string
+  MaNVNhan?: string
   DienGiai?: string
 }
 
-interface HangHoa { MaHang: number; TenHang: string }
-interface Kho { maKho: number; tenKho: string }
-interface NhanVien { maNV: number; tenNV: string }
+interface HangHoa { MaHang: number; TenHang: string; MaTS?: string; MaHangText?: string }
+interface Kho { maKho: number; tenKho: string; maKhoText?: string }
+interface NhanVien { maNV: number; tenNV: string; maNVText?: string }
 
 const StockOutPage = () => {
   const [items, setItems] = useState<XuatHang[]>([])
@@ -218,7 +222,12 @@ const StockOutPage = () => {
     { 
       key: 'TenHang', 
       header: 'Hàng hóa',
-      render: (item: XuatHang) => <span className="text-white font-medium">{item.TenHang}</span>
+      render: (item: XuatHang) => (
+        <div>
+          <span className="text-white font-medium">{item.TenHang}</span>
+          {item.MaHangText && <span className="text-gray-500 text-xs ml-2">({item.MaHangText})</span>}
+        </div>
+      )
     },
     { 
       key: 'TenKho', 
@@ -233,7 +242,10 @@ const StockOutPage = () => {
           <svg className="w-4 h-4 mr-2 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
           </svg>
-          <span className="text-gray-300">{item.TenNguoiGiao || '-'}</span>
+          <span className="text-gray-300">
+            {item.TenNguoiGiao || '-'}
+            {item.MaNVGiao && <span className="text-gray-500 text-xs ml-1">({item.MaNVGiao})</span>}
+          </span>
         </div>
       )
     },
@@ -245,7 +257,10 @@ const StockOutPage = () => {
           <svg className="w-4 h-4 mr-2 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
           </svg>
-          <span className="text-gray-300">{item.TenNguoiNhan || '-'}</span>
+          <span className="text-gray-300">
+            {item.TenNguoiNhan || '-'}
+            {item.MaNVNhan && <span className="text-gray-500 text-xs ml-1">({item.MaNVNhan})</span>}
+          </span>
         </div>
       )
     },
@@ -378,7 +393,7 @@ const StockOutPage = () => {
 
           <SelectWithAdd
             label="Hàng hóa *"
-            options={hangHoas.map(h => ({ value: h.MaHang, label: h.TenHang }))}
+            options={hangHoas.map(h => ({ value: h.MaHang, label: `${h.TenHang}${h.MaTS ? ` (${h.MaTS})` : ''}` }))}
             value={formData.MaHang}
             onChange={handleSelectHangHoa}
             placeholder="Chọn hàng hóa..."
@@ -388,7 +403,7 @@ const StockOutPage = () => {
 
           <SelectWithAdd
             label="Từ kho *"
-            options={khos.map(k => ({ value: k.maKho, label: k.tenKho }))}
+            options={khos.map(k => ({ value: k.maKho, label: `${k.tenKho}${k.maKhoText ? ` (${k.maKhoText})` : ''}` }))}
             value={formData.MaKho}
             onChange={handleSelectKho}
             placeholder="Chọn kho..."
@@ -426,7 +441,7 @@ const StockOutPage = () => {
           <div className="grid grid-cols-2 gap-4">
             <SelectWithAdd
               label="Người giao (NV kho)"
-              options={nhanViens.map(nv => ({ value: nv.maNV, label: nv.tenNV }))}
+              options={nhanViens.map(nv => ({ value: nv.maNV, label: `${nv.tenNV}${nv.maNVText ? ` (${nv.maNVText})` : ''}` }))}
               value={formData.NguoiGiao}
               onChange={(v) => setFormData({ ...formData, NguoiGiao: v })}
               placeholder="Chọn nhân viên..."
@@ -435,7 +450,7 @@ const StockOutPage = () => {
             />
             <SelectWithAdd
               label="Người nhận (NV)"
-              options={nhanViens.map(nv => ({ value: nv.maNV, label: nv.tenNV }))}
+              options={nhanViens.map(nv => ({ value: nv.maNV, label: `${nv.tenNV}${nv.maNVText ? ` (${nv.maNVText})` : ''}` }))}
               value={formData.NguoiNhan}
               onChange={(v) => setFormData({ ...formData, NguoiNhan: v })}
               placeholder="Chọn nhân viên..."

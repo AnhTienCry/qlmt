@@ -224,6 +224,36 @@ export class AuthService {
     )
   }
 
+  // Reset password về mặc định bằng username (public - không cần auth)
+  async resetPasswordByUsername(username: string): Promise<{ username: string; newPassword: string }> {
+    // Tìm user theo username
+    const result = await db.query<{ UserId: number; Username: string }>(
+      `SELECT UserId, Username FROM Users WHERE Username = @username`,
+      { username }
+    )
+
+    if (result.recordset.length === 0) {
+      throw new Error('Không tìm thấy tài khoản với tên đăng nhập này')
+    }
+
+    const user = result.recordset[0]
+    // Mật khẩu mặc định: username@123
+    const newPassword = `${user.Username.toLowerCase()}@123`
+    const passwordHash = await bcrypt.hash(newPassword, 10)
+
+    await db.query(
+      `UPDATE Users SET PasswordHash = @passwordHash, NgayCapNhat = GETDATE() WHERE UserId = @userId`,
+      { passwordHash, userId: user.UserId }
+    )
+
+    console.log(`✅ Reset password cho user: ${user.Username}`)
+
+    return {
+      username: user.Username,
+      newPassword: newPassword,
+    }
+  }
+
   async deleteUser(userId: number): Promise<void> {
     await db.query(
       `DELETE FROM Users WHERE UserId = @userId`,

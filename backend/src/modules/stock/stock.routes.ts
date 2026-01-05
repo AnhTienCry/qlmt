@@ -6,8 +6,15 @@ const router = Router()
 
 router.use(authMiddleware)
 
+// ==================== THIẾT BỊ CỦA USER ====================
+router.get('/my-devices', stockController.getThietBiCuaUser)
+
 // ==================== BÁO CÁO ====================
 router.get('/baocao/nhapxuatton', stockController.getBaoCaoNhapXuatTon)
+router.get('/baocao/nhapkho', stockController.getBaoCaoNhapKho)
+router.get('/baocao/xuatkho', stockController.getBaoCaoXuatKho)
+router.get('/baocao/theodoi/:maHang', stockController.getTheoDoiThietBi)
+router.get('/baocao/thietbi-nhanvien/:maNV', stockController.getThietBiCuaNhanVien)
 
 // ==================== TỒN KHO ====================
 router.get('/tonkho/:maHang/:maKho', stockController.getTonKho)
