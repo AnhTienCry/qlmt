@@ -313,6 +313,57 @@ export function exportBaoCaoNhapXuatTon(items: any[], tuNgay: string, denNgay: s
   XLSX.writeFile(wb, filename)
 }
 
+/**
+ * Export Báo cáo Thiết bị đang sử dụng
+ * Liệt kê tất cả thiết bị và người/kho đang giữ
+ */
+export function exportBaoCaoThietBiSuDung(items: any[]) {
+  const wb = XLSX.utils.book_new()
+  
+  const wsData: any[][] = [
+    ['BÁO CÁO THIẾT BỊ ĐANG SỬ DỤNG'],
+    [`Ngày xuất: ${new Date().toLocaleDateString('vi-VN')}`],
+    [],
+    ['STT', 'Mã TS', 'Tên thiết bị', 'Loại', 'Trạng thái', 'Người/Kho đang giữ', 'GD cuối', 'Ngày'],
+  ]
+
+  items.forEach((item, index) => {
+    wsData.push([
+      index + 1,
+      item.MaTS || '',
+      item.TenHang || '',
+      item.LoaiHang || '',
+      item.TrangThai || '',
+      item.NguoiHoacKhoDangGiu || '-',
+      item.GiaoDichCuoi || '-',
+      item.NgayGiaoDichCuoi ? new Date(item.NgayGiaoDichCuoi).toLocaleDateString('vi-VN') : '-',
+    ])
+  })
+
+  const ws = XLSX.utils.aoa_to_sheet(wsData)
+
+  ws['!merges'] = [
+    { s: { r: 0, c: 0 }, e: { r: 0, c: 7 } },
+    { s: { r: 1, c: 0 }, e: { r: 1, c: 7 } },
+  ]
+
+  ws['!cols'] = [
+    { wch: 5 },   // STT
+    { wch: 12 },  // Mã TS
+    { wch: 30 },  // Tên thiết bị
+    { wch: 15 },  // Loại
+    { wch: 15 },  // Trạng thái
+    { wch: 25 },  // Người/Kho đang giữ
+    { wch: 15 },  // GD cuối
+    { wch: 12 },  // Ngày
+  ]
+
+  XLSX.utils.book_append_sheet(wb, ws, 'TB đang sử dụng')
+
+  const timestamp = new Date().toISOString().slice(0, 10)
+  XLSX.writeFile(wb, `BaoCaoThietBiSuDung_${timestamp}.xlsx`)
+}
+
 // Helper functions
 function getRoleLabel(role: string): string {
   const roleLabels: Record<string, string> = {

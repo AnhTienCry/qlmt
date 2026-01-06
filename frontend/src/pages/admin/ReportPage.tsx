@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import api from '@/libs/axios'
 import { Download, FileSpreadsheet, Search, Package, History, Users } from 'lucide-react'
-import { exportBaoCaoNhapXuatTon, exportToExcel } from '@/libs/excel'
+import { exportBaoCaoNhapXuatTon, exportToExcel, exportBaoCaoThietBiSuDung } from '@/libs/excel'
 
 interface BaoCaoItem {
   MaHang: string
@@ -575,9 +575,19 @@ const ReportPage = () => {
 
           {activeTab === 'thietbisudung' && (
             <>
-              <div className="p-4 border-b border-[#2e2e2e] text-center">
-                <h2 className="text-lg font-semibold text-white">BÁO CÁO THIẾT BỊ ĐANG SỬ DỤNG</h2>
-                <p className="text-gray-400 text-sm mt-1">Danh sách thiết bị và người/kho đang giữ</p>
+              <div className="p-4 border-b border-[#2e2e2e] flex items-center justify-between">
+                <div className="text-center flex-1">
+                  <h2 className="text-lg font-semibold text-white">BÁO CÁO THIẾT BỊ ĐANG SỬ DỤNG</h2>
+                  <p className="text-gray-400 text-sm mt-1">Danh sách thiết bị và người/kho đang giữ</p>
+                </div>
+                <button
+                  onClick={() => exportBaoCaoThietBiSuDung(dataThietBiSuDung)}
+                  disabled={dataThietBiSuDung.length === 0}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 rounded-lg text-white text-sm"
+                >
+                  <Download className="w-4 h-4" />
+                  Xuất Excel
+                </button>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full">
