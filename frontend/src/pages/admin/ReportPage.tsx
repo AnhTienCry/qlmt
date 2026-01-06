@@ -231,6 +231,10 @@ const ReportPage = () => {
           { key: 'soLuong', title: 'SL' }, { key: 'donGia', title: 'Đơn giá' }
         ], { filename: `BaoCaoXuatKho_${tuNgay}_${denNgay}` })
         break
+      case 'thietbisudung':
+        if (dataThietBiSuDung.length === 0) return alert('Không có dữ liệu')
+        exportBaoCaoThietBiSuDung(dataThietBiSuDung)
+        break
     }
   }
 
@@ -376,7 +380,7 @@ const ReportPage = () => {
             {loading ? 'Đang tải...' : 'Xem báo cáo'}
           </button>
 
-          {hasSearched && activeTab !== 'theodoi' && (
+          {hasSearched && (activeTab === 'nhapxuatton' || activeTab === 'nhapkho' || activeTab === 'xuatkho' || activeTab === 'thietbisudung') && (
             <button onClick={handleExport}
               className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition">
               <Download className="w-4 h-4" />
@@ -575,19 +579,9 @@ const ReportPage = () => {
 
           {activeTab === 'thietbisudung' && (
             <>
-              <div className="p-4 border-b border-[#2e2e2e] flex items-center justify-between">
-                <div className="text-center flex-1">
-                  <h2 className="text-lg font-semibold text-white">BÁO CÁO THIẾT BỊ ĐANG SỬ DỤNG</h2>
-                  <p className="text-gray-400 text-sm mt-1">Danh sách thiết bị và người/kho đang giữ</p>
-                </div>
-                <button
-                  onClick={() => exportBaoCaoThietBiSuDung(dataThietBiSuDung)}
-                  disabled={dataThietBiSuDung.length === 0}
-                  className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 rounded-lg text-white text-sm"
-                >
-                  <Download className="w-4 h-4" />
-                  Xuất Excel
-                </button>
+              <div className="p-4 border-b border-[#2e2e2e] text-center">
+                <h2 className="text-lg font-semibold text-white">BÁO CÁO THIẾT BỊ ĐANG SỬ DỤNG</h2>
+                <p className="text-gray-400 text-sm mt-1">Danh sách thiết bị và người/kho đang giữ</p>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full">
