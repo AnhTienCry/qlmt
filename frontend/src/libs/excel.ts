@@ -254,13 +254,14 @@ export function exportBaoCaoNhapXuatTon(items: any[], tuNgay: string, denNgay: s
     ['BÁO CÁO NHẬP XUẤT TỒN'],
     [`Từ ngày: ${new Date(tuNgay).toLocaleDateString('vi-VN')} đến ngày: ${new Date(denNgay).toLocaleDateString('vi-VN')}`],
     [], // Dòng trống
-    ['STT', 'Mã hàng', 'Tên hàng', 'Đầu kỳ', 'Nhập', 'Xuất', 'Tồn'],
+    ['STT', 'Kho', 'Mã hàng', 'Tên hàng', 'Đầu kỳ', 'Nhập', 'Xuất', 'Tồn'],
   ]
 
   // Thêm dữ liệu
   items.forEach((item, index) => {
     wsData.push([
       index + 1,
+      item.TenKho || '',
       item.MaHang,
       item.TenHang,
       item.DauKy || 0,
@@ -275,6 +276,7 @@ export function exportBaoCaoNhapXuatTon(items: any[], tuNgay: string, denNgay: s
   wsData.push([
     '',
     '',
+    '',
     'TỔNG CỘNG',
     items.reduce((sum, item) => sum + (item.DauKy || 0), 0),
     items.reduce((sum, item) => sum + (item.Nhap || 0), 0),
@@ -286,13 +288,14 @@ export function exportBaoCaoNhapXuatTon(items: any[], tuNgay: string, denNgay: s
 
   // Merge cells cho tiêu đề
   ws['!merges'] = [
-    { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } }, // Merge row 1 (tiêu đề)
-    { s: { r: 1, c: 0 }, e: { r: 1, c: 6 } }, // Merge row 2 (thời gian)
+    { s: { r: 0, c: 0 }, e: { r: 0, c: 7 } }, // Merge row 1 (tiêu đề)
+    { s: { r: 1, c: 0 }, e: { r: 1, c: 7 } }, // Merge row 2 (thời gian)
   ]
 
   // Set column widths
   ws['!cols'] = [
     { wch: 5 },   // STT
+    { wch: 20 },  // Kho
     { wch: 15 },  // Mã hàng
     { wch: 30 },  // Tên hàng
     { wch: 10 },  // Đầu kỳ

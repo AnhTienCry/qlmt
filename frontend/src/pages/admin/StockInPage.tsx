@@ -48,8 +48,14 @@ const StockInPage = () => {
   const [showAddNCC, setShowAddNCC] = useState(false)
   const [showAddNhanVien, setShowAddNhanVien] = useState(false)
 
+  // Helper: lấy ngày hiện tại theo local timezone (YYYY-MM-DD)
+  const getLocalDate = () => {
+    const now = new Date()
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  }
+
   const [formData, setFormData] = useState({
-    NgayNhap: new Date().toISOString().split('T')[0],
+    NgayNhap: getLocalDate(),
     MaHang: '',
     MaKho: '',
     NguoiGiao: '',
@@ -94,7 +100,7 @@ const StockInPage = () => {
     }
     setEditingId(null)
     setFormData({
-      NgayNhap: new Date().toISOString().split('T')[0],
+      NgayNhap: getLocalDate(),
       MaHang: '',
       MaKho: '',
       NguoiGiao: '',
@@ -108,7 +114,7 @@ const StockInPage = () => {
     setEditingId(item.MaNhap)
     setSoPhieuMoi(item.SoPhieuN)
     setFormData({
-      NgayNhap: item.NgayNhap ? item.NgayNhap.split('T')[0] : new Date().toISOString().split('T')[0],
+      NgayNhap: item.NgayNhap ? item.NgayNhap.split('T')[0] : getLocalDate(),
       MaHang: item.MaHang?.toString() || '',
       MaKho: item.MaKho?.toString() || '',
       NguoiGiao: item.NguoiGiao?.toString() || '',

@@ -282,52 +282,56 @@ class StockService {
    * Lấy báo cáo nhập xuất tồn kho theo khoảng thời gian
    * Công thức: Tồn cuối = Đầu kỳ + Nhập - Xuất
    */
-  async getBaoCaoNhapXuatTon(tuNgay?: string, denNgay?: string): Promise<any[]> {
+  async getBaoCaoNhapXuatTon(tuNgay?: string, denNgay?: string, maKho?: number): Promise<any[]> {
     // Nếu không có ngày, lấy từ đầu tháng đến hiện tại
     const now = new Date()
     const defaultTuNgay = tuNgay || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
     const defaultDenNgay = denNgay || now.toISOString().split('T')[0]
 
+    // Tính NXT theo từng kho (có filter nếu có maKho)
+    const khoFilter = maKho ? 'AND kh.MaKho = @maKho' : ''
+    
     const query = `
       WITH DauKy AS (
-        -- Tính số lượng đầu kỳ (tồn trước ngày bắt đầu)
-        SELECT hh.MaHang, hh.TenHang,
-               ISNULL(SUM(nh.SoLuong), 0) - ISNULL(SUM(xh.SoLuong), 0) AS SoDauKy
+        -- Tính số lượng đầu kỳ theo từng kho
+        SELECT hh.MaHang, hh.MaTS, hh.TenHang, kh.MaKho, kh.TenKho,
+               ISNULL((SELECT SUM(SoLuong) FROM NhapHang WHERE MaHang = hh.MaHang AND MaKho = kh.MaKho AND NgayNhap < @tuNgay), 0) 
+               - ISNULL((SELECT SUM(SoLuong) FROM XuatHang WHERE MaHang = hh.MaHang AND MaKho = kh.MaKho AND NgayXuat < @tuNgay), 0) AS SoDauKy
         FROM HangHoa hh
-        LEFT JOIN NhapHang nh ON hh.MaHang = nh.MaHang AND nh.NgayNhap < @tuNgay
-        LEFT JOIN XuatHang xh ON hh.MaHang = xh.MaHang AND xh.NgayXuat < @tuNgay
-        GROUP BY hh.MaHang, hh.TenHang
+        CROSS JOIN Kho kh
+        WHERE 1=1 ${khoFilter}
       ),
       TrongKy AS (
-        -- Tính nhập/xuất trong kỳ
-        SELECT hh.MaHang,
-               ISNULL(SUM(nh.SoLuong), 0) AS SoNhap,
-               ISNULL(SUM(xh.SoLuong), 0) AS SoXuat
+        -- Tính nhập/xuất trong kỳ theo từng kho
+        SELECT hh.MaHang, kh.MaKho,
+               ISNULL((SELECT SUM(SoLuong) FROM NhapHang WHERE MaHang = hh.MaHang AND MaKho = kh.MaKho AND NgayNhap >= @tuNgay AND NgayNhap <= @denNgay), 0) AS SoNhap,
+               ISNULL((SELECT SUM(SoLuong) FROM XuatHang WHERE MaHang = hh.MaHang AND MaKho = kh.MaKho AND NgayXuat >= @tuNgay AND NgayXuat <= @denNgay), 0) AS SoXuat
         FROM HangHoa hh
-        LEFT JOIN NhapHang nh ON hh.MaHang = nh.MaHang 
-             AND nh.NgayNhap >= @tuNgay AND nh.NgayNhap <= @denNgay
-        LEFT JOIN XuatHang xh ON hh.MaHang = xh.MaHang 
-             AND xh.NgayXuat >= @tuNgay AND xh.NgayXuat <= @denNgay
-        GROUP BY hh.MaHang
+        CROSS JOIN Kho kh
+        WHERE 1=1 ${khoFilter}
       )
       SELECT 
         dk.MaHang,
+        dk.MaTS,
         dk.TenHang,
+        dk.MaKho,
+        dk.TenKho,
         ISNULL(dk.SoDauKy, 0) AS DauKy,
         ISNULL(tk.SoNhap, 0) AS Nhap,
         ISNULL(tk.SoXuat, 0) AS Xuat,
         ISNULL(dk.SoDauKy, 0) + ISNULL(tk.SoNhap, 0) - ISNULL(tk.SoXuat, 0) AS Ton
       FROM DauKy dk
-      LEFT JOIN TrongKy tk ON dk.MaHang = tk.MaHang
+      LEFT JOIN TrongKy tk ON dk.MaHang = tk.MaHang AND dk.MaKho = tk.MaKho
       WHERE ISNULL(dk.SoDauKy, 0) != 0 
          OR ISNULL(tk.SoNhap, 0) != 0 
          OR ISNULL(tk.SoXuat, 0) != 0
-      ORDER BY dk.MaHang
+      ORDER BY dk.TenKho, dk.MaHang
     `
 
     const result = await db.query<any>(query, { 
       tuNgay: defaultTuNgay, 
-      denNgay: defaultDenNgay 
+      denNgay: defaultDenNgay,
+      maKho: maKho || null
     })
     
     return result.recordset
@@ -365,19 +369,44 @@ class StockService {
 
   /**
    * Lấy danh sách hàng hóa đã xuất (để dùng cho Điều chuyển)
-   * Chỉ lấy những hàng đã xuất và đang được ai đó giữ
+   * Tính người đang giữ = người nhận của giao dịch cuối cùng (Xuất hoặc Điều chuyển)
    */
   async getHangDaXuat(): Promise<any[]> {
     const result = await db.query<any>(`
-      SELECT DISTINCT
-        xh.MaHang,
+      WITH GiaoDichCuoi AS (
+        -- Lấy tất cả giao dịch xuất và điều chuyển
+        -- Ưu tiên: 1) Ngày mới nhất, 2) Điều chuyển > Xuất (cùng ngày), 3) ID lớn nhất
+        SELECT 
+          MaHang,
+          NgayGD,
+          NguoiNhan,
+          LoaiGD,
+          ThuTu,
+          MaGD,
+          ROW_NUMBER() OVER (PARTITION BY MaHang ORDER BY NgayGD DESC, ThuTu DESC, MaGD DESC) as rn
+        FROM (
+          -- Xuất kho (ThuTu = 1)
+          SELECT MaXuat as MaGD, MaHang, NgayXuat as NgayGD, NguoiNhan, 'XUAT' as LoaiGD, 1 as ThuTu
+          FROM XuatHang
+          WHERE NguoiNhan IS NOT NULL
+          
+          UNION ALL
+          
+          -- Điều chuyển (ThuTu = 2, ưu tiên cao hơn nếu cùng ngày)
+          SELECT MaDC as MaGD, MaHang, NgayDC as NgayGD, NguoiNhan, 'DIEU_CHUYEN' as LoaiGD, 2 as ThuTu
+          FROM DieuChuyen
+          WHERE NguoiNhan IS NOT NULL
+        ) AS AllGD
+      )
+      SELECT 
+        gd.MaHang,
         hh.TenHang,
-        xh.NguoiNhan as MaNV_DangDung,
+        gd.NguoiNhan as MaNV_DangDung,
         nv.TenNV as TenNV_DangDung
-      FROM XuatHang xh
-      INNER JOIN HangHoa hh ON xh.MaHang = hh.MaHang
-      LEFT JOIN NhanVien nv ON xh.NguoiNhan = nv.MaNV
-      WHERE xh.NguoiNhan IS NOT NULL
+      FROM GiaoDichCuoi gd
+      INNER JOIN HangHoa hh ON gd.MaHang = hh.MaHang
+      LEFT JOIN NhanVien nv ON gd.NguoiNhan = nv.MaNV
+      WHERE gd.rn = 1
       ORDER BY hh.TenHang
     `)
     return result.recordset
@@ -427,20 +456,24 @@ class StockService {
   /**
    * Báo cáo nhập kho theo filter
    * Filter: NguoiGiao (NCC hoặc NV), Kho, từ ngày - đến ngày
+   * maNCC: lọc theo NCC (nhập mới)
+   * maNV: lọc theo NV người giao (NV trả máy)
    */
-  async getBaoCaoNhapKho(tuNgay: string, denNgay: string, maKho?: number, nguoiGiao?: number): Promise<any[]> {
+  async getBaoCaoNhapKho(tuNgay: string, denNgay: string, maKho?: number, maNCC?: number, maNV?: number): Promise<any[]> {
     let query = `
       SELECT 
         nh.SoPhieuN, nh.NgayNhap, nh.SoLuong, nh.DonGia,
         hh.MaTS as MaHang, hh.TenHang,
         kh.MaKhoText, kh.TenKho,
         ncc.MaSoThue as MaNCC, ncc.TenNCC,
+        nvGiao.TenNV as TenNguoiGiao,
         nv.MaNVText, nv.TenNV as TenNguoiNhan,
         nh.DienGiai
       FROM NhapHang nh
       LEFT JOIN HangHoa hh ON nh.MaHang = hh.MaHang
       LEFT JOIN Kho kh ON nh.MaKho = kh.MaKho
       LEFT JOIN NCC ncc ON nh.NguoiGiao = ncc.MaNCC
+      LEFT JOIN NhanVien nvGiao ON nh.NguoiGiao = nvGiao.MaNV
       LEFT JOIN NhanVien nv ON nh.NguoiNhan = nv.MaNV
       WHERE nh.NgayNhap >= @tuNgay AND nh.NgayNhap <= @denNgay
     `
@@ -450,9 +483,13 @@ class StockService {
       query += ' AND nh.MaKho = @maKho'
       params.maKho = maKho
     }
-    if (nguoiGiao) {
-      query += ' AND nh.NguoiGiao = @nguoiGiao'
-      params.nguoiGiao = nguoiGiao
+    if (maNCC) {
+      query += ' AND nh.NguoiGiao = @maNCC'
+      params.maNCC = maNCC
+    }
+    if (maNV) {
+      query += ' AND nh.NguoiGiao = @maNV'
+      params.maNV = maNV
     }
 
     query += ' ORDER BY nh.NgayNhap DESC'
@@ -557,7 +594,7 @@ class StockService {
         LEFT JOIN NhanVien nvNhan ON dc.NguoiNhan = nvNhan.MaNV
         WHERE dc.MaHang = @maHang
       ) AS LichSu
-      ORDER BY NgayGD DESC
+      ORDER BY NgayGD ASC
     `, { maHang })
 
     return { thietBi, lichSu: result.recordset }
@@ -578,6 +615,87 @@ class StockService {
       WHERE xh.NguoiNhan = @maNV
       ORDER BY xh.NgayXuat DESC
     `, { maNV })
+    return result.recordset
+  }
+
+  /**
+   * Báo cáo "Thiết bị đang sử dụng"
+   * Liệt kê tất cả thiết bị và trạng thái hiện tại:
+   * - Giao dịch cuối là Nhập kho → Trong kho
+   * - Giao dịch cuối là Xuất kho/Điều chuyển → Đang sử dụng bởi NV
+   */
+  async getBaoCaoThietBiSuDung(): Promise<any[]> {
+    const result = await db.query<any>(`
+      WITH GiaoDichCuoi AS (
+        SELECT 
+          MaHang, NgayGD, LoaiGD, TenKho, MaNV_DangDung, TenNV_DangDung,
+          ROW_NUMBER() OVER (PARTITION BY MaHang ORDER BY NgayGD DESC, ThuTu DESC, MaGD DESC) as rn
+        FROM (
+          -- Nhập kho: vào kho, chưa ai giữ (ThuTu = 1, ưu tiên thấp nhất)
+          SELECT 
+            nh.MaNhap as MaGD, nh.MaHang, nh.NgayNhap as NgayGD, 
+            'NHAP' as LoaiGD,
+            kh.TenKho,
+            NULL as MaNV_DangDung,
+            NULL as TenNV_DangDung,
+            1 as ThuTu
+          FROM NhapHang nh
+          LEFT JOIN Kho kh ON nh.MaKho = kh.MaKho
+          
+          UNION ALL
+          
+          -- Xuất kho: ra khỏi kho, người nhận đang giữ (ThuTu = 2)
+          SELECT 
+            xh.MaXuat as MaGD, xh.MaHang, xh.NgayXuat as NgayGD,
+            'XUAT' as LoaiGD,
+            NULL as TenKho,
+            xh.NguoiNhan as MaNV_DangDung,
+            nv.TenNV as TenNV_DangDung,
+            2 as ThuTu
+          FROM XuatHang xh
+          LEFT JOIN NhanVien nv ON xh.NguoiNhan = nv.MaNV
+          
+          UNION ALL
+          
+          -- Điều chuyển: từ NV này sang NV khác (ThuTu = 3, ưu tiên cao nhất)
+          SELECT 
+            dc.MaDC as MaGD, dc.MaHang, dc.NgayDC as NgayGD,
+            'DIEU_CHUYEN' as LoaiGD,
+            NULL as TenKho,
+            dc.NguoiNhan as MaNV_DangDung,
+            nv.TenNV as TenNV_DangDung,
+            3 as ThuTu
+          FROM DieuChuyen dc
+          LEFT JOIN NhanVien nv ON dc.NguoiNhan = nv.MaNV
+        ) AS AllGD
+      )
+      SELECT 
+        hh.MaHang,
+        hh.MaTS,
+        hh.TenHang,
+        hh.LoaiHang,
+        CASE 
+          WHEN gd.LoaiGD IS NULL THEN N'Chưa nhập kho'
+          WHEN gd.LoaiGD = 'NHAP' THEN N'Trong kho'
+          ELSE N'Đang sử dụng'
+        END AS TrangThai,
+        CASE 
+          WHEN gd.LoaiGD IS NULL THEN N'-'
+          WHEN gd.LoaiGD = 'NHAP' THEN ISNULL(gd.TenKho, N'Không rõ kho')
+          ELSE ISNULL(gd.TenNV_DangDung, N'Không rõ người giữ')
+        END AS NguoiHoacKhoDangGiu,
+        gd.MaNV_DangDung,
+        CASE 
+          WHEN gd.LoaiGD IS NULL THEN N'-'
+          WHEN gd.LoaiGD = 'NHAP' THEN N'Nhập kho'
+          WHEN gd.LoaiGD = 'XUAT' THEN N'Xuất kho'
+          ELSE N'Điều chuyển'
+        END as GiaoDichCuoi,
+        gd.NgayGD as NgayGiaoDichCuoi
+      FROM HangHoa hh
+      LEFT JOIN GiaoDichCuoi gd ON hh.MaHang = gd.MaHang AND gd.rn = 1
+      ORDER BY hh.TenHang
+    `)
     return result.recordset
   }
 }

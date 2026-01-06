@@ -152,10 +152,11 @@ class StockController {
 
   async getBaoCaoNhapXuatTon(req: Request, res: Response) {
     try {
-      const { tuNgay, denNgay } = req.query
+      const { tuNgay, denNgay, maKho } = req.query
       const data = await stockService.getBaoCaoNhapXuatTon(
         tuNgay as string, 
-        denNgay as string
+        denNgay as string,
+        maKho ? parseInt(maKho as string) : undefined
       )
       res.json({ 
         success: true, 
@@ -214,12 +215,13 @@ class StockController {
 
   async getBaoCaoNhapKho(req: Request, res: Response) {
     try {
-      const { tuNgay, denNgay, maKho, nguoiGiao } = req.query
+      const { tuNgay, denNgay, maKho, maNCC, maNV } = req.query
       const data = await stockService.getBaoCaoNhapKho(
         tuNgay as string,
         denNgay as string,
         maKho ? parseInt(maKho as string) : undefined,
-        nguoiGiao ? parseInt(nguoiGiao as string) : undefined
+        maNCC ? parseInt(maNCC as string) : undefined,
+        maNV ? parseInt(maNV as string) : undefined
       )
       res.json({ success: true, data })
     } catch (error: any) {
@@ -263,6 +265,15 @@ class StockController {
         return res.status(400).json({ success: false, message: 'Thiếu mã nhân viên' })
       }
       const data = await stockService.getThietBiCuaNhanVien(maNV)
+      res.json({ success: true, data })
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message })
+    }
+  }
+
+  async getBaoCaoThietBiSuDung(req: Request, res: Response) {
+    try {
+      const data = await stockService.getBaoCaoThietBiSuDung()
       res.json({ success: true, data })
     } catch (error: any) {
       res.status(500).json({ success: false, message: error.message })

@@ -46,8 +46,14 @@ const StockOutPage = () => {
   const [showAddKho, setShowAddKho] = useState(false)
   const [showAddNhanVien, setShowAddNhanVien] = useState(false)
 
+  // Helper: lấy ngày hiện tại theo local timezone (YYYY-MM-DD)
+  const getLocalDate = () => {
+    const now = new Date()
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  }
+
   const [formData, setFormData] = useState({
-    NgayXuat: new Date().toISOString().split('T')[0],
+    NgayXuat: getLocalDate(),
     MaHang: '',
     MaKho: '',
     NguoiGiao: '',
@@ -90,7 +96,7 @@ const StockOutPage = () => {
     }
     setEditingId(null)
     setFormData({
-      NgayXuat: new Date().toISOString().split('T')[0],
+      NgayXuat: getLocalDate(),
       MaHang: '',
       MaKho: '',
       NguoiGiao: '',
@@ -104,7 +110,7 @@ const StockOutPage = () => {
     setEditingId(item.MaXuat)
     setSoPhieuMoi(item.SoPhieuX)
     setFormData({
-      NgayXuat: item.NgayXuat ? item.NgayXuat.split('T')[0] : new Date().toISOString().split('T')[0],
+      NgayXuat: item.NgayXuat ? item.NgayXuat.split('T')[0] : getLocalDate(),
       MaHang: item.MaHang?.toString() || '',
       MaKho: item.MaKho?.toString() || '',
       NguoiGiao: item.NguoiGiao?.toString() || '',
@@ -147,8 +153,16 @@ const StockOutPage = () => {
       if (tonKho !== null && tonKho <= 0) {
         const tenHang = hangHoas.find(h => h.MaHang === parseInt(formData.MaHang))?.TenHang
         const tenKho = khos.find(k => k.maKho === parseInt(formData.MaKho))?.tenKho
-        alert(`Mặt hàng "${tenHang}" đã hết trong kho "${tenKho}"!\nTồn hiện tại: ${tonKho}`)
-        return
+        const confirmXuat = confirm(
+          `⚠️ CẢNH BÁO: Mặt hàng "${tenHang}" đã HẾT trong kho "${tenKho}"!\n` +
+          `Tồn hiện tại: ${tonKho}\n\n` +
+          `Bạn có muốn VẪN XUẤT không?\n` +
+          `- Nhấn OK để vẫn xuất\n` +
+          `- Nhấn Cancel để hủy`
+        )
+        if (!confirmXuat) {
+          return // Người dùng chọn không xuất
+        }
       }
 
       setSaving(true)

@@ -6,6 +6,8 @@ import { exportBaoCaoNhapXuatTon } from '@/libs/excel'
 interface BaoCaoItem {
   MaHang: string
   TenHang: string
+  MaKho: string
+  TenKho: string
   DauKy: number
   Nhap: number
   Xuat: number
@@ -127,6 +129,7 @@ const DirectorReportPage = () => {
               <thead>
                 <tr className="border-b border-[#2e2e2e] bg-[#0f0f0f]">
                   <th className="text-center px-4 py-3 text-xs font-medium text-gray-400 uppercase w-16">STT</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Kho</th>
                   <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Mã hàng</th>
                   <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Tên hàng</th>
                   <th className="text-center px-4 py-3 text-xs font-medium text-gray-400 uppercase w-24">Đầu kỳ</th>
@@ -138,7 +141,7 @@ const DirectorReportPage = () => {
               <tbody className="divide-y divide-[#2e2e2e]">
                 {data.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-16 text-center">
+                    <td colSpan={8} className="px-6 py-16 text-center">
                       <FileSpreadsheet className="w-12 h-12 mx-auto mb-3 text-gray-600" />
                       <p className="text-gray-400 font-medium">Không có dữ liệu</p>
                       <p className="text-gray-500 text-sm mt-1">Chưa có giao dịch nhập xuất trong khoảng thời gian này</p>
@@ -147,8 +150,9 @@ const DirectorReportPage = () => {
                 ) : (
                   <>
                     {data.map((item, index) => (
-                      <tr key={item.MaHang} className="hover:bg-[#252525] transition">
+                      <tr key={`${item.MaHang}-${item.MaKho}`} className="hover:bg-[#252525] transition">
                         <td className="px-4 py-3 text-sm text-gray-300 text-center">{index + 1}</td>
+                        <td className="px-4 py-3 text-sm text-purple-400 font-medium">{item.TenKho}</td>
                         <td className="px-4 py-3 text-sm text-white font-medium">{item.MaHang}</td>
                         <td className="px-4 py-3 text-sm text-gray-300">{item.TenHang}</td>
                         <td className="px-4 py-3 text-sm text-gray-300 text-center">{item.DauKy}</td>
@@ -158,16 +162,16 @@ const DirectorReportPage = () => {
                         <td className="px-4 py-3 text-sm text-red-400 text-center font-medium">
                           {item.Xuat > 0 ? `-${item.Xuat}` : item.Xuat}
                         </td>
-                        <td className="px-4 py-3 text-sm text-purple-400 text-center font-semibold">{item.Ton}</td>
+                        <td className="px-4 py-3 text-sm text-blue-400 text-center font-semibold">{item.Ton}</td>
                       </tr>
                     ))}
                     {/* Tổng cộng */}
                     <tr className="bg-[#0f0f0f] font-semibold">
-                      <td className="px-4 py-3 text-sm text-white text-center" colSpan={3}>TỔNG CỘNG</td>
+                      <td className="px-4 py-3 text-sm text-white text-center" colSpan={4}>TỔNG CỘNG</td>
                       <td className="px-4 py-3 text-sm text-white text-center">{totals.dauKy}</td>
                       <td className="px-4 py-3 text-sm text-green-400 text-center">{totals.nhap}</td>
                       <td className="px-4 py-3 text-sm text-red-400 text-center">{totals.xuat}</td>
-                      <td className="px-4 py-3 text-sm text-purple-400 text-center">{totals.ton}</td>
+                      <td className="px-4 py-3 text-sm text-blue-400 text-center">{totals.ton}</td>
                     </tr>
                   </>
                 )}

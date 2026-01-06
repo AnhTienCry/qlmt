@@ -40,8 +40,14 @@ const TransferPage = () => {
   const [nhanViens, setNhanViens] = useState<NhanVien[]>([])
   const [soPhieuMoi, setSoPhieuMoi] = useState('')
 
+  // Helper: lấy ngày hiện tại theo local timezone (YYYY-MM-DD)
+  const getLocalDate = () => {
+    const now = new Date()
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  }
+
   const [formData, setFormData] = useState({
-    NgayDC: new Date().toISOString().split('T')[0],
+    NgayDC: getLocalDate(),
     MaHang: '',
     NguoiGiao: '',
     NguoiNhan: '',
@@ -86,7 +92,7 @@ const TransferPage = () => {
       setSoPhieuMoi('')
     }
     setFormData({
-      NgayDC: new Date().toISOString().split('T')[0],
+      NgayDC: getLocalDate(),
       MaHang: '',
       NguoiGiao: '',
       NguoiNhan: '',

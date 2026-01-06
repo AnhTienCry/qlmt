@@ -15,6 +15,7 @@ router.get('/baocao/nhapkho', stockController.getBaoCaoNhapKho)
 router.get('/baocao/xuatkho', stockController.getBaoCaoXuatKho)
 router.get('/baocao/theodoi/:maHang', stockController.getTheoDoiThietBi)
 router.get('/baocao/thietbi-nhanvien/:maNV', stockController.getThietBiCuaNhanVien)
+router.get('/baocao/thietbi-sudung', stockController.getBaoCaoThietBiSuDung)
 
 // ==================== TỒN KHO ====================
 router.get('/tonkho/:maHang/:maKho', stockController.getTonKho)
