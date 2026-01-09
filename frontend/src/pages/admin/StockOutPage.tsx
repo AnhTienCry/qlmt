@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import axios from '@/libs/axios'
 import { Button, Card, Badge, Modal, Table, PageHeader, SearchInput, SelectWithAdd, AddHangHoaModal, AddKhoModal, AddNhanVienModal } from '@/components/ui'
 import { Download } from 'lucide-react'
@@ -27,6 +27,12 @@ interface HangHoa { MaHang: number; TenHang: string; MaTS?: string; MaHangText?:
 interface Kho { maKho: number; tenKho: string; maKhoText?: string }
 interface NhanVien { maNV: number; tenNV: string; maNVText?: string }
 
+// Helper: lấy ngày hiện tại theo local timezone (YYYY-MM-DD) - moved outside to prevent recreation
+const getLocalDate = () => {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+}
+
 const StockOutPage = () => {
   const [items, setItems] = useState<XuatHang[]>([])
   const [loading, setLoading] = useState(true)
@@ -46,12 +52,6 @@ const StockOutPage = () => {
   const [showAddKho, setShowAddKho] = useState(false)
   const [showAddNhanVien, setShowAddNhanVien] = useState(false)
 
-  // Helper: lấy ngày hiện tại theo local timezone (YYYY-MM-DD)
-  const getLocalDate = () => {
-    const now = new Date()
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-  }
-
   const [formData, setFormData] = useState({
     NgayXuat: getLocalDate(),
     MaHang: '',
@@ -61,13 +61,14 @@ const StockOutPage = () => {
     DienGiai: ''
   })
 
-  const fetchData = async () => {
+  // Optimized fetch with useCallback
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true)
       const params = searchKeyword ? { search: searchKeyword } : {}
       const [xhRes, hhRes, khoRes, nvRes] = await Promise.all([
         axios.get('/stock/xuathang', { params }),
-        axios.get('/hanghoa'), // Lấy tất cả hàng hóa
+        axios.get('/hanghoa'),
         axios.get('/warehouses'),
         axios.get('/employees')
       ])
@@ -81,7 +82,7 @@ const StockOutPage = () => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [searchKeyword])
 
   useEffect(() => {
     fetchData()

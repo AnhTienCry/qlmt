@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import axios from '@/libs/axios'
 import { Button, Input, Card, Select, Badge, Modal, Table, PageHeader, SearchInput } from '@/components/ui'
 import { Download } from 'lucide-react'
@@ -55,7 +55,7 @@ const HangHoaPage = () => {
     ThongTinChiTiet: ''
   })
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true)
       const params: any = {}
@@ -70,7 +70,7 @@ const HangHoaPage = () => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [searchKeyword, filterLoai, filterTrangThai])
 
   useEffect(() => {
     fetchData()

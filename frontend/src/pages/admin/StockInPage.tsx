@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import axios from '@/libs/axios'
 import { Button, Card, Badge, Modal, Table, PageHeader, SearchInput, SelectWithAdd, AddHangHoaModal, AddKhoModal, AddNCCModal, AddNhanVienModal } from '@/components/ui'
 import { Download } from 'lucide-react'
@@ -28,6 +28,12 @@ interface Kho { maKho: number; tenKho: string; maKhoText?: string }
 interface NCC { MaNCC: number; TenNCC: string; MaSoThue?: string; MaNCCText?: string }
 interface NhanVien { maNV: number; tenNV: string; maNVText?: string }
 
+// Helper: lấy ngày hiện tại theo local timezone (YYYY-MM-DD) - moved outside to prevent recreation
+const getLocalDate = () => {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+}
+
 const StockInPage = () => {
   const [items, setItems] = useState<NhapHang[]>([])
   const [loading, setLoading] = useState(true)
@@ -48,12 +54,6 @@ const StockInPage = () => {
   const [showAddNCC, setShowAddNCC] = useState(false)
   const [showAddNhanVien, setShowAddNhanVien] = useState(false)
 
-  // Helper: lấy ngày hiện tại theo local timezone (YYYY-MM-DD)
-  const getLocalDate = () => {
-    const now = new Date()
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-  }
-
   const [formData, setFormData] = useState({
     NgayNhap: getLocalDate(),
     MaHang: '',
@@ -63,9 +63,10 @@ const StockInPage = () => {
     DienGiai: ''
   })
 
-  const fetchData = async () => {
+  // Optimized fetch with useCallback - fetches both list and lookup data
+  const fetchData = useCallback(async () => {
+    setLoading(true)
     try {
-      setLoading(true)
       const params = searchKeyword ? { search: searchKeyword } : {}
       const [nhRes, hhRes, khoRes, nccRes, nvRes] = await Promise.all([
         axios.get('/stock/nhaphang', { params }),
@@ -85,7 +86,7 @@ const StockInPage = () => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [searchKeyword])
 
   useEffect(() => {
     fetchData()

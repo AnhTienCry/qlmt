@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import api from '@/libs/axios'
 import { Download, FileSpreadsheet, Search, Package, History, Users } from 'lucide-react'
 import { exportBaoCaoNhapXuatTon, exportToExcel, exportBaoCaoThietBiSuDung } from '@/libs/excel'
@@ -89,16 +89,42 @@ interface NCC {
 
 type TabType = 'nhapxuatton' | 'nhapkho' | 'xuatkho' | 'theodoi' | 'thietbisudung'
 
+// Static data - moved outside component to prevent recreation on each render
+const TABS = [
+  { id: 'nhapxuatton', label: 'Nhập xuất tồn', icon: FileSpreadsheet },
+  { id: 'nhapkho', label: 'Báo cáo nhập kho', icon: Package },
+  { id: 'xuatkho', label: 'Báo cáo xuất kho', icon: Package },
+  { id: 'theodoi', label: 'Theo dõi thiết bị', icon: History },
+  { id: 'thietbisudung', label: 'TB đang sử dụng', icon: Users },
+] as const
+
+const LOAI_NV_MAP: Record<string, { label: string; color: string }> = {
+  'NHAP': { label: 'Nhập kho', color: 'bg-green-500/20 text-green-400' },
+  'XUAT': { label: 'Xuất kho', color: 'bg-red-500/20 text-red-400' },
+  'DIEU_CHUYEN': { label: 'Điều chuyển', color: 'bg-blue-500/20 text-blue-400' },
+  'Nhập kho': { label: 'Nhập kho', color: 'bg-green-500/20 text-green-400' },
+  'Xuất kho': { label: 'Xuất kho', color: 'bg-red-500/20 text-red-400' },
+  'Điều chuyển': { label: 'Điều chuyển', color: 'bg-blue-500/20 text-blue-400' },
+  '-': { label: '-', color: 'bg-gray-500/20 text-gray-400' },
+}
+
+// Helper function to calculate default dates (computed once)
+const getDefaultDates = () => {
+  const today = new Date()
+  const firstDayOfMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`
+  const todayStr = today.toISOString().split('T')[0]
+  return { firstDayOfMonth, todayStr }
+}
+
+const DEFAULT_DATES = getDefaultDates()
+
 const ReportPage = () => {
   const [activeTab, setActiveTab] = useState<TabType>('nhapxuatton')
   const [loading, setLoading] = useState(false)
   
-  // Filters
-  const today = new Date()
-  const firstDayOfMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`
-  const todayStr = today.toISOString().split('T')[0]
-  const [tuNgay, setTuNgay] = useState(firstDayOfMonth)
-  const [denNgay, setDenNgay] = useState(todayStr)
+  // Filters - using pre-computed default dates
+  const [tuNgay, setTuNgay] = useState(DEFAULT_DATES.firstDayOfMonth)
+  const [denNgay, setDenNgay] = useState(DEFAULT_DATES.todayStr)
   const [maKho, setMaKho] = useState<number | undefined>()
   const [nguoiGiaoFilter, setNguoiGiaoFilter] = useState<string>('') // format: ncc-123 or nv-456
   const [nguoiNhan, setNguoiNhan] = useState<number | undefined>()
@@ -238,35 +264,19 @@ const ReportPage = () => {
     }
   }
 
-  const getLoaiNVBadge = (loai: string) => {
-    const map: Record<string, { label: string; color: string }> = {
-      'NHAP': { label: 'Nhập kho', color: 'bg-green-500/20 text-green-400' },
-      'XUAT': { label: 'Xuất kho', color: 'bg-red-500/20 text-red-400' },
-      'DIEU_CHUYEN': { label: 'Điều chuyển', color: 'bg-blue-500/20 text-blue-400' },
-      'Nhập kho': { label: 'Nhập kho', color: 'bg-green-500/20 text-green-400' },
-      'Xuất kho': { label: 'Xuất kho', color: 'bg-red-500/20 text-red-400' },
-      'Điều chuyển': { label: 'Điều chuyển', color: 'bg-blue-500/20 text-blue-400' },
-      '-': { label: '-', color: 'bg-gray-500/20 text-gray-400' },
-    }
-    const info = map[loai] || { label: loai, color: 'bg-gray-500/20 text-gray-400' }
+  // Memoized badge renderer using static map
+  const getLoaiNVBadge = useCallback((loai: string) => {
+    const info = LOAI_NV_MAP[loai] || { label: loai, color: 'bg-gray-500/20 text-gray-400' }
     return <span className={`px-2 py-1 rounded-full text-xs ${info.color}`}>{info.label}</span>
-  }
+  }, [])
 
-  const tabs = [
-    { id: 'nhapxuatton', label: 'Nhập xuất tồn', icon: FileSpreadsheet },
-    { id: 'nhapkho', label: 'Báo cáo nhập kho', icon: Package },
-    { id: 'xuatkho', label: 'Báo cáo xuất kho', icon: Package },
-    { id: 'theodoi', label: 'Theo dõi thiết bị', icon: History },
-    { id: 'thietbisudung', label: 'TB đang sử dụng', icon: Users },
-  ]
-
-  // Tính tổng NXT
-  const totals = {
+  // Memoized totals calculation - only recalculates when dataBC changes
+  const totals = useMemo(() => ({
     dauKy: dataBC.reduce((sum, item) => sum + (item.DauKy || 0), 0),
     nhap: dataBC.reduce((sum, item) => sum + (item.Nhap || 0), 0),
     xuat: dataBC.reduce((sum, item) => sum + (item.Xuat || 0), 0),
     ton: dataBC.reduce((sum, item) => sum + (item.Ton || 0), 0),
-  }
+  }), [dataBC])
 
   return (
     <div className="space-y-6">
@@ -281,7 +291,7 @@ const ReportPage = () => {
 
       {/* Tabs */}
       <div className="flex gap-2 border-b border-[#2e2e2e] pb-2 overflow-x-auto">
-        {tabs.map(tab => (
+        {TABS.map(tab => (
           <button
             key={tab.id}
             onClick={() => { setActiveTab(tab.id as TabType); setHasSearched(false) }}

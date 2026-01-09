@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import axios from '@/libs/axios'
 import { Button, Card, Badge, Modal, Select, Table, PageHeader, SearchInput } from '@/components/ui'
 import { Download } from 'lucide-react'
@@ -29,6 +29,12 @@ interface NhanVien {
   tenNV: string
 }
 
+// Helper: lấy ngày hiện tại theo local timezone (YYYY-MM-DD) - moved outside to prevent recreation
+const getLocalDate = () => {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+}
+
 const TransferPage = () => {
   const [items, setItems] = useState<DieuChuyen[]>([])
   const [loading, setLoading] = useState(true)
@@ -40,12 +46,6 @@ const TransferPage = () => {
   const [nhanViens, setNhanViens] = useState<NhanVien[]>([])
   const [soPhieuMoi, setSoPhieuMoi] = useState('')
 
-  // Helper: lấy ngày hiện tại theo local timezone (YYYY-MM-DD)
-  const getLocalDate = () => {
-    const now = new Date()
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-  }
-
   const [formData, setFormData] = useState({
     NgayDC: getLocalDate(),
     MaHang: '',
@@ -54,18 +54,18 @@ const TransferPage = () => {
     DienGiai: ''
   })
 
-  const fetchData = async () => {
+  // Optimized fetch with useCallback
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true)
       const params = searchKeyword ? { search: searchKeyword } : {}
       const [dcRes, hhRes, nvRes] = await Promise.all([
         axios.get('/transfer', { params }),
-        axios.get('/stock/hangdaxuat'), // Lấy từ bảng Xuất - chỉ hàng đã xuất mới điều chuyển được
+        axios.get('/stock/hangdaxuat'),
         axios.get('/employees')
       ])
       
       setItems(dcRes.data.data || [])
-      // Map lại dữ liệu cho phù hợp với interface HangHoa
       setHangHoas((hhRes.data.data || []).map((h: any) => ({
         MaHang: h.MaHang,
         TenHang: h.TenHang,
@@ -78,7 +78,7 @@ const TransferPage = () => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [searchKeyword])
 
   useEffect(() => {
     fetchData()

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import axios from '@/libs/axios'
 import { Button, Input, Card, Modal, Table, PageHeader, SearchInput } from '@/components/ui'
 import { Download } from 'lucide-react'
@@ -32,7 +32,7 @@ const NCCPage = () => {
     GhiChu: ''
   })
 
-  const fetchNccs = async () => {
+  const fetchNccs = useCallback(async () => {
     try {
       setLoading(true)
       const params = searchKeyword ? { search: searchKeyword } : {}
@@ -43,7 +43,7 @@ const NCCPage = () => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [searchKeyword])
 
   useEffect(() => {
     fetchNccs()

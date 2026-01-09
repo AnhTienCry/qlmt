@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import api from '@/libs/axios'
 import { Download, Plus } from 'lucide-react'
 import { exportEmployees } from '@/libs/excel'
@@ -40,7 +40,7 @@ const EmployeesPage = () => {
     fetchData()
   }, [])
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true)
       const [empRes, deptRes] = await Promise.all([
@@ -54,7 +54,7 @@ const EmployeesPage = () => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

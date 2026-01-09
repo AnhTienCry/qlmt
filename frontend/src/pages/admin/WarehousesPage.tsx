@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import api from '@/libs/axios'
 import { Download, Plus } from 'lucide-react'
 import { exportWarehouses } from '@/libs/excel'
@@ -27,7 +27,7 @@ const WarehousesPage = () => {
     fetchData()
   }, [])
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true)
       const res = await api.get('/warehouses')
@@ -37,7 +37,7 @@ const WarehousesPage = () => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
