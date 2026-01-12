@@ -5,9 +5,14 @@ import { exportBaoCaoNhapXuatTon, exportToExcel, exportBaoCaoThietBiSuDung } fro
 
 interface BaoCaoItem {
   MaHang: string
+  MaTS?: string
   TenHang: string
   MaKho: string
   TenKho: string
+  LoaiHang?: string
+  HangSX?: string
+  Model?: string
+  ThongTinChiTiet?: string
   DauKy: number
   Nhap: number
   Xuat: number
@@ -19,6 +24,7 @@ interface NhapKhoItem {
   NgayNhap: string
   MaHang: string
   TenHang: string
+  LoaiHang?: string
   TenKho: string
   TenNCC: string
   TenNguoiGiao: string
@@ -33,6 +39,7 @@ interface XuatKhoItem {
   NgayXuat: string
   MaHang: string
   TenHang: string
+  LoaiHang?: string
   TenKho: string
   TenNguoiGiao: string
   TenNguoiNhan: string
@@ -89,6 +96,18 @@ interface NCC {
 
 type TabType = 'nhapxuatton' | 'nhapkho' | 'xuatkho' | 'theodoi' | 'thietbisudung'
 
+// Mapping loại hàng từ key sang label
+const LOAI_HANG_MAP: Record<string, string> = {
+  'may_tinh': 'Máy tính',
+  'man_hinh': 'Màn hình',
+  'phim': 'Bàn phím',
+  'chuot': 'Chuột',
+  'dau_chuyen': 'Đầu chuyển đổi',
+  'phu_kien': 'Phụ kiện',
+  'thiet_bi_mang': 'Thiết bị mạng',
+  'khac': 'Khác'
+}
+
 // Static data - moved outside component to prevent recreation on each render
 const TABS = [
   { id: 'nhapxuatton', label: 'Nhập xuất tồn', icon: FileSpreadsheet },
@@ -129,6 +148,7 @@ const ReportPage = () => {
   const [nguoiGiaoFilter, setNguoiGiaoFilter] = useState<string>('') // format: ncc-123 or nv-456
   const [nguoiNhan, setNguoiNhan] = useState<number | undefined>()
   const [maHang, setMaHang] = useState<number | undefined>()
+  const [loaiHangFilter, setLoaiHangFilter] = useState<string>('')
 
   // Data
   const [dataBC, setDataBC] = useState<BaoCaoItem[]>([])
@@ -226,12 +246,12 @@ const ReportPage = () => {
   const handleExport = () => {
     switch (activeTab) {
       case 'nhapxuatton':
-        if (dataBC.length === 0) return alert('Không có dữ liệu')
-        exportBaoCaoNhapXuatTon(dataBC, tuNgay, denNgay)
+        if (filteredDataBC.length === 0) return alert('Không có dữ liệu')
+        exportBaoCaoNhapXuatTon(filteredDataBC, tuNgay, denNgay)
         break
       case 'nhapkho':
-        if (dataNhap.length === 0) return alert('Không có dữ liệu')
-        exportToExcel(dataNhap.map((d, i) => ({
+        if (filteredDataNhap.length === 0) return alert('Không có dữ liệu')
+        exportToExcel(filteredDataNhap.map((d, i) => ({
           stt: i + 1, soPhieu: d.SoPhieuN, ngay: new Date(d.NgayNhap).toLocaleDateString('vi-VN'),
           maHang: d.MaHang, tenHang: d.TenHang, kho: d.TenKho, nguoiGiao: d.TenNCC || d.TenNguoiGiao || '',
           nguoiNhan: d.TenNguoiNhan, soLuong: d.SoLuong, donGia: d.DonGia
@@ -244,8 +264,8 @@ const ReportPage = () => {
         ], { filename: `BaoCaoNhapKho_${tuNgay}_${denNgay}` })
         break
       case 'xuatkho':
-        if (dataXuat.length === 0) return alert('Không có dữ liệu')
-        exportToExcel(dataXuat.map((d, i) => ({
+        if (filteredDataXuat.length === 0) return alert('Không có dữ liệu')
+        exportToExcel(filteredDataXuat.map((d, i) => ({
           stt: i + 1, soPhieu: d.SoPhieuX, ngay: new Date(d.NgayXuat).toLocaleDateString('vi-VN'),
           maHang: d.MaHang, tenHang: d.TenHang, kho: d.TenKho, nguoiGiao: d.TenNguoiGiao,
           nguoiNhan: d.TenNguoiNhan, soLuong: d.SoLuong, donGia: d.DonGia
@@ -258,8 +278,8 @@ const ReportPage = () => {
         ], { filename: `BaoCaoXuatKho_${tuNgay}_${denNgay}` })
         break
       case 'thietbisudung':
-        if (dataThietBiSuDung.length === 0) return alert('Không có dữ liệu')
-        exportBaoCaoThietBiSuDung(dataThietBiSuDung)
+        if (filteredDataThietBiSuDung.length === 0) return alert('Không có dữ liệu')
+        exportBaoCaoThietBiSuDung(filteredDataThietBiSuDung)
         break
     }
   }
@@ -270,13 +290,35 @@ const ReportPage = () => {
     return <span className={`px-2 py-1 rounded-full text-xs ${info.color}`}>{info.label}</span>
   }, [])
 
-  // Memoized totals calculation - only recalculates when dataBC changes
+  // Filtered data by loaiHangFilter
+  const filteredDataBC = useMemo(() => {
+    if (!loaiHangFilter) return dataBC
+    return dataBC.filter(item => item.LoaiHang === loaiHangFilter)
+  }, [dataBC, loaiHangFilter])
+
+  const filteredDataThietBiSuDung = useMemo(() => {
+    if (!loaiHangFilter) return dataThietBiSuDung
+    return dataThietBiSuDung.filter(item => item.LoaiHang === loaiHangFilter)
+  }, [dataThietBiSuDung, loaiHangFilter])
+
+  // Filtered data for Nhập/Xuất tabs
+  const filteredDataNhap = useMemo(() => {
+    if (!loaiHangFilter) return dataNhap
+    return dataNhap.filter(item => item.LoaiHang === loaiHangFilter)
+  }, [dataNhap, loaiHangFilter])
+
+  const filteredDataXuat = useMemo(() => {
+    if (!loaiHangFilter) return dataXuat
+    return dataXuat.filter(item => item.LoaiHang === loaiHangFilter)
+  }, [dataXuat, loaiHangFilter])
+
+  // Memoized totals calculation - only recalculates when filteredDataBC changes
   const totals = useMemo(() => ({
-    dauKy: dataBC.reduce((sum, item) => sum + (item.DauKy || 0), 0),
-    nhap: dataBC.reduce((sum, item) => sum + (item.Nhap || 0), 0),
-    xuat: dataBC.reduce((sum, item) => sum + (item.Xuat || 0), 0),
-    ton: dataBC.reduce((sum, item) => sum + (item.Ton || 0), 0),
-  }), [dataBC])
+    dauKy: filteredDataBC.reduce((sum, item) => sum + (item.DauKy || 0), 0),
+    nhap: filteredDataBC.reduce((sum, item) => sum + (item.Nhap || 0), 0),
+    xuat: filteredDataBC.reduce((sum, item) => sum + (item.Xuat || 0), 0),
+    ton: filteredDataBC.reduce((sum, item) => sum + (item.Ton || 0), 0),
+  }), [filteredDataBC])
 
   return (
     <div className="space-y-6">
@@ -332,6 +374,19 @@ const ReportPage = () => {
                 className="px-3 py-2 bg-[#0f0f0f] border border-[#2e2e2e] rounded-lg text-white focus:outline-none focus:border-blue-500 min-w-[150px]">
                 <option value="">Tất cả</option>
                 {khos.map(k => <option key={k.maKho} value={k.maKho}>{k.tenKho}</option>)}
+              </select>
+            </div>
+          )}
+
+          {(activeTab === 'nhapxuatton' || activeTab === 'nhapkho' || activeTab === 'xuatkho' || activeTab === 'thietbisudung') && (
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-1">Loại hàng</label>
+              <select value={loaiHangFilter} onChange={(e) => setLoaiHangFilter(e.target.value)}
+                className="px-3 py-2 bg-[#0f0f0f] border border-[#2e2e2e] rounded-lg text-white focus:outline-none focus:border-blue-500 min-w-[150px]">
+                <option value="">Tất cả</option>
+                {Object.entries(LOAI_HANG_MAP).map(([key, label]) => (
+                  <option key={key} value={key}>{label}</option>
+                ))}
               </select>
             </div>
           )}
@@ -417,25 +472,31 @@ const ReportPage = () => {
                     <tr className="border-b border-[#2e2e2e] bg-[#0f0f0f]">
                       <th className="text-center px-4 py-3 text-xs font-medium text-gray-400 uppercase w-16">STT</th>
                       <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Kho</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Mã hàng</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Tên hàng</th>
-                      <th className="text-center px-4 py-3 text-xs font-medium text-gray-400 uppercase w-24">Đầu kỳ</th>
-                      <th className="text-center px-4 py-3 text-xs font-medium text-gray-400 uppercase w-24">Nhập</th>
-                      <th className="text-center px-4 py-3 text-xs font-medium text-gray-400 uppercase w-24">Xuất</th>
-                      <th className="text-center px-4 py-3 text-xs font-medium text-gray-400 uppercase w-24">Tồn</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Hàng hóa</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Loại hàng</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Hãng SX</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Model</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Thông tin chi tiết</th>
+                      <th className="text-center px-4 py-3 text-xs font-medium text-gray-400 uppercase w-24">Tồn đầu kỳ</th>
+                      <th className="text-center px-4 py-3 text-xs font-medium text-gray-400 uppercase w-24">SL Nhập</th>
+                      <th className="text-center px-4 py-3 text-xs font-medium text-gray-400 uppercase w-24">SL Xuất</th>
+                      <th className="text-center px-4 py-3 text-xs font-medium text-gray-400 uppercase w-24">Tồn cuối kỳ</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#2e2e2e]">
-                    {dataBC.length === 0 ? (
-                      <tr><td colSpan={8} className="px-6 py-16 text-center text-gray-400">Không có dữ liệu</td></tr>
+                    {filteredDataBC.length === 0 ? (
+                      <tr><td colSpan={11} className="px-6 py-16 text-center text-gray-400">Không có dữ liệu</td></tr>
                     ) : (
                       <>
-                        {dataBC.map((item, index) => (
+                        {filteredDataBC.map((item, index) => (
                           <tr key={`${item.MaHang}-${item.MaKho}`} className="hover:bg-[#252525]">
                             <td className="px-4 py-3 text-sm text-gray-300 text-center">{index + 1}</td>
                             <td className="px-4 py-3 text-sm text-purple-400 font-medium">{item.TenKho}</td>
-                            <td className="px-4 py-3 text-sm text-white font-medium">{item.MaHang}</td>
-                            <td className="px-4 py-3 text-sm text-gray-300">{item.TenHang}</td>
+                            <td className="px-4 py-3 text-sm text-white font-medium">{item.MaTS || item.MaHang} - {item.TenHang}</td>
+                            <td className="px-4 py-3 text-sm text-gray-300">{LOAI_HANG_MAP[item.LoaiHang || ''] || item.LoaiHang || '-'}</td>
+                            <td className="px-4 py-3 text-sm text-gray-300">{item.HangSX || '-'}</td>
+                            <td className="px-4 py-3 text-sm text-gray-300">{item.Model || '-'}</td>
+                            <td className="px-4 py-3 text-sm text-gray-300">{item.ThongTinChiTiet || '-'}</td>
                             <td className="px-4 py-3 text-sm text-gray-300 text-center">{item.DauKy}</td>
                             <td className="px-4 py-3 text-sm text-green-400 text-center font-medium">{item.Nhap > 0 ? `+${item.Nhap}` : item.Nhap}</td>
                             <td className="px-4 py-3 text-sm text-red-400 text-center font-medium">{item.Xuat > 0 ? `-${item.Xuat}` : item.Xuat}</td>
@@ -443,7 +504,7 @@ const ReportPage = () => {
                           </tr>
                         ))}
                         <tr className="bg-[#0f0f0f] font-semibold">
-                          <td className="px-4 py-3 text-sm text-white text-center" colSpan={4}>TỔNG CỘNG</td>
+                          <td className="px-4 py-3 text-sm text-white text-center" colSpan={7}>TỔNG CỘNG</td>
                           <td className="px-4 py-3 text-sm text-white text-center">{totals.dauKy}</td>
                           <td className="px-4 py-3 text-sm text-green-400 text-center">{totals.nhap}</td>
                           <td className="px-4 py-3 text-sm text-red-400 text-center">{totals.xuat}</td>
@@ -480,9 +541,9 @@ const ReportPage = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#2e2e2e]">
-                    {dataNhap.length === 0 ? (
+                    {filteredDataNhap.length === 0 ? (
                       <tr><td colSpan={8} className="px-6 py-16 text-center text-gray-400">Không có dữ liệu</td></tr>
-                    ) : dataNhap.map((item, idx) => (
+                    ) : filteredDataNhap.map((item, idx) => (
                       <tr key={idx} className="hover:bg-[#252525]">
                         <td className="px-4 py-3 text-sm text-gray-300 text-center">{idx + 1}</td>
                         <td className="px-4 py-3 text-sm text-white font-medium">{item.SoPhieuN}</td>
@@ -523,9 +584,9 @@ const ReportPage = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#2e2e2e]">
-                    {dataXuat.length === 0 ? (
+                    {filteredDataXuat.length === 0 ? (
                       <tr><td colSpan={8} className="px-6 py-16 text-center text-gray-400">Không có dữ liệu</td></tr>
-                    ) : dataXuat.map((item, idx) => (
+                    ) : filteredDataXuat.map((item, idx) => (
                       <tr key={idx} className="hover:bg-[#252525]">
                         <td className="px-4 py-3 text-sm text-gray-300 text-center">{idx + 1}</td>
                         <td className="px-4 py-3 text-sm text-white font-medium">{item.SoPhieuX}</td>
@@ -608,14 +669,14 @@ const ReportPage = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#2e2e2e]">
-                    {dataThietBiSuDung.length === 0 ? (
-                      <tr><td colSpan={8} className="px-6 py-16 text-center text-gray-400">Không có dữ liệu</td></tr>
-                    ) : dataThietBiSuDung.map((item, idx) => (
+                    {filteredDataThietBiSuDung.filter(item => item.NguoiHoacKhoDangGiu && item.NguoiHoacKhoDangGiu !== '-').length === 0 ? (
+                      <tr><td colSpan={8} className="px-6 py-16 text-center text-gray-400">Không có thiết bị nào đang được sử dụng</td></tr>
+                    ) : filteredDataThietBiSuDung.filter(item => item.NguoiHoacKhoDangGiu && item.NguoiHoacKhoDangGiu !== '-').map((item, idx) => (
                       <tr key={item.MaHang} className="hover:bg-[#252525]">
                         <td className="px-4 py-3 text-sm text-gray-300 text-center">{idx + 1}</td>
                         <td className="px-4 py-3 text-sm text-white font-medium">{item.MaTS}</td>
                         <td className="px-4 py-3 text-sm text-gray-300">{item.TenHang}</td>
-                        <td className="px-4 py-3 text-sm text-gray-400">{item.LoaiHang || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-400">{LOAI_HANG_MAP[item.LoaiHang || ''] || item.LoaiHang || '-'}</td>
                         <td className="px-4 py-3 text-center">
                           <span className={`px-2 py-1 rounded-full text-xs ${
                             item.TrangThai === 'Trong kho' 

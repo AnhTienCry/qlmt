@@ -241,6 +241,15 @@ class StockService {
       DienGiai: data.DienGiai || null
     })
 
+    // Cập nhật người đang sử dụng thiết bị (NguoiNhan)
+    if (data.MaHang && data.NguoiNhan) {
+      await db.query(`
+        UPDATE HangHoa 
+        SET MaNV_DangDung = @MaNV, TrangThai = N'Đang dùng', NgayCapNhat = SYSUTCDATETIME()
+        WHERE MaHang = @MaHang
+      `, { MaNV: data.NguoiNhan, MaHang: data.MaHang })
+    }
+
     return {
       MaXuat: result.recordset[0].MaXuat,
       SoPhieuX: soPhieu
@@ -294,7 +303,8 @@ class StockService {
     const query = `
       WITH DauKy AS (
         -- Tính số lượng đầu kỳ theo từng kho
-        SELECT hh.MaHang, hh.MaTS, hh.TenHang, kh.MaKho, kh.TenKho,
+        SELECT hh.MaHang, hh.MaTS, hh.TenHang, hh.LoaiHang, hh.Hang, hh.Model, hh.ThongTinChiTiet,
+               kh.MaKho, kh.TenKho,
                ISNULL((SELECT SUM(SoLuong) FROM NhapHang WHERE MaHang = hh.MaHang AND MaKho = kh.MaKho AND NgayNhap < @tuNgay), 0) 
                - ISNULL((SELECT SUM(SoLuong) FROM XuatHang WHERE MaHang = hh.MaHang AND MaKho = kh.MaKho AND NgayXuat < @tuNgay), 0) AS SoDauKy
         FROM HangHoa hh
@@ -314,6 +324,10 @@ class StockService {
         dk.MaHang,
         dk.MaTS,
         dk.TenHang,
+        dk.LoaiHang,
+        dk.Hang as HangSX,
+        dk.Model,
+        dk.ThongTinChiTiet,
         dk.MaKho,
         dk.TenKho,
         ISNULL(dk.SoDauKy, 0) AS DauKy,
@@ -413,7 +427,7 @@ class StockService {
   }
 
   /**
-   * Lấy danh sách thiết bị được cấp cho user (dựa trên MaNV từ Users)
+   * Lấy danh sách thiết bị được cấp cho user (dựa trên MaNV_DangDung trong HangHoa)
    */
   async getThietBiCuaUser(userId: number): Promise<any[]> {
     // Lấy MaNV từ Users
@@ -427,25 +441,40 @@ class StockService {
       return [] // User chưa được liên kết với nhân viên
     }
 
-    // Lấy danh sách thiết bị xuất cho nhân viên này
+    // Lấy danh sách thiết bị đang được giao cho nhân viên này (dựa trên MaNV_DangDung)
     const result = await db.query<any>(`
       SELECT 
-        xh.MaXuat,
-        xh.SoPhieuX,
-        xh.NgayXuat,
-        xh.MaHang,
+        hh.MaHang,
         hh.MaTS as MaHangText,
         hh.TenHang,
         hh.LoaiHang,
-        kh.TenKho as TuKho,
-        nvGiao.TenNV as NguoiGiao,
-        xh.DienGiai
-      FROM XuatHang xh
-      INNER JOIN HangHoa hh ON xh.MaHang = hh.MaHang
-      LEFT JOIN Kho kh ON xh.MaKho = kh.MaKho
-      LEFT JOIN NhanVien nvGiao ON xh.NguoiGiao = nvGiao.MaNV
-      WHERE xh.NguoiNhan = @maNV
-      ORDER BY xh.NgayXuat DESC
+        hh.TrangThai,
+        hh.MaNV_DangDung,
+        -- Lấy thông tin giao dịch cuối cùng (điều chuyển hoặc xuất kho)
+        COALESCE(dc.NgayDC, xh.NgayXuat) as NgayCap,
+        COALESCE(dcKho.TenKho, xhKho.TenKho) as TuKho,
+        COALESCE(dcNV.TenNV, xhNV.TenNV) as NguoiGiao
+      FROM HangHoa hh
+      -- Left join để lấy điều chuyển cuối cùng cho thiết bị này tới user
+      LEFT JOIN (
+        SELECT dc1.MaHang, dc1.NgayDC, dc1.TuKho, dc1.NguoiGiao
+        FROM DieuChuyen dc1
+        WHERE dc1.NguoiNhan = @maNV
+          AND dc1.NgayDC = (SELECT MAX(dc2.NgayDC) FROM DieuChuyen dc2 WHERE dc2.MaHang = dc1.MaHang AND dc2.NguoiNhan = @maNV)
+      ) dc ON hh.MaHang = dc.MaHang
+      LEFT JOIN Kho dcKho ON dc.TuKho = dcKho.MaKho
+      LEFT JOIN NhanVien dcNV ON dc.NguoiGiao = dcNV.MaNV
+      -- Left join để lấy xuất kho cuối cùng cho thiết bị này tới user
+      LEFT JOIN (
+        SELECT xh1.MaHang, xh1.NgayXuat, xh1.MaKho, xh1.NguoiGiao
+        FROM XuatHang xh1
+        WHERE xh1.NguoiNhan = @maNV
+          AND xh1.NgayXuat = (SELECT MAX(xh2.NgayXuat) FROM XuatHang xh2 WHERE xh2.MaHang = xh1.MaHang AND xh2.NguoiNhan = @maNV)
+      ) xh ON hh.MaHang = xh.MaHang
+      LEFT JOIN Kho xhKho ON xh.MaKho = xhKho.MaKho
+      LEFT JOIN NhanVien xhNV ON xh.NguoiGiao = xhNV.MaNV
+      WHERE hh.MaNV_DangDung = @maNV
+      ORDER BY COALESCE(dc.NgayDC, xh.NgayXuat) DESC
     `, { maNV })
 
     return result.recordset
@@ -463,7 +492,7 @@ class StockService {
     let query = `
       SELECT 
         nh.SoPhieuN, nh.NgayNhap, nh.SoLuong, nh.DonGia,
-        hh.MaTS as MaHang, hh.TenHang,
+        hh.MaTS as MaHang, hh.TenHang, hh.LoaiHang,
         kh.MaKhoText, kh.TenKho,
         ncc.MaSoThue as MaNCC, ncc.TenNCC,
         nvGiao.TenNV as TenNguoiGiao,
@@ -505,7 +534,7 @@ class StockService {
     let query = `
       SELECT 
         xh.SoPhieuX, xh.NgayXuat, xh.SoLuong,
-        hh.MaTS as MaHang, hh.TenHang,
+        hh.MaTS as MaHang, hh.TenHang, hh.LoaiHang,
         kh.MaKhoText, kh.TenKho,
         nvGiao.MaNVText as MaNVGiao, nvGiao.TenNV as TenNguoiGiao,
         nvNhan.MaNVText as MaNVNhan, nvNhan.TenNV as TenNguoiNhan,
@@ -601,19 +630,28 @@ class StockService {
   }
 
   /**
-   * Lấy danh sách thiết bị đã cấp cho một NV cụ thể
+   * Lấy danh sách thiết bị ĐANG được NV này sử dụng
    * Dùng cho đề xuất sửa chữa/nâng cấp
+   * Sử dụng MaNV_DangDung để xác định thiết bị hiện tại (đã tính điều chuyển)
    */
   async getThietBiCuaNhanVien(maNV: number): Promise<any[]> {
     const result = await db.query<any>(`
       SELECT 
-        xh.MaHang, hh.MaTS, hh.TenHang, hh.LoaiHang as TenNhom,
-        xh.NgayXuat, kh.TenKho as TuKho
-      FROM XuatHang xh
-      INNER JOIN HangHoa hh ON xh.MaHang = hh.MaHang
+        hh.MaHang, 
+        hh.MaTS, 
+        hh.TenHang, 
+        hh.LoaiHang as TenNhom,
+        xh.NgayXuat, 
+        kh.TenKho as TuKho
+      FROM HangHoa hh
+      LEFT JOIN (
+        SELECT MaHang, NgayXuat, MaKho,
+               ROW_NUMBER() OVER (PARTITION BY MaHang ORDER BY NgayXuat DESC) as rn
+        FROM XuatHang
+      ) xh ON hh.MaHang = xh.MaHang AND xh.rn = 1
       LEFT JOIN Kho kh ON xh.MaKho = kh.MaKho
-      WHERE xh.NguoiNhan = @maNV
-      ORDER BY xh.NgayXuat DESC
+      WHERE hh.MaNV_DangDung = @maNV
+      ORDER BY hh.TenHang
     `, { maNV })
     return result.recordset
   }

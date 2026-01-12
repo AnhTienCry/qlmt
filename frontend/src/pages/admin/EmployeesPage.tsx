@@ -26,6 +26,8 @@ const EmployeesPage = () => {
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
+  const [searchKeyword, setSearchKeyword] = useState('')
+  const [selectedIds, setSelectedIds] = useState<number[]>([])
   
   // Form state
   const [maNVText, setMaNVText] = useState('')
@@ -106,15 +108,55 @@ const EmployeesPage = () => {
     alert(`📋 THÔNG TIN TÀI KHOẢN\n\nNhân viên: ${item.tenNV}\nMã NV: ${item.maNVText}\nPhòng ban: ${item.tenPB || 'Chưa có'}\n\n📌 TÀI KHOẢN ĐĂNG NHẬP:\nUsername: ${username}\nMật khẩu mặc định: ${username}@123\n\n(Nhân viên có thể đổi mật khẩu sau khi đăng nhập)`)
   }
 
+  const handleResetPassword = async (item: Employee) => {
+    const username = item.maNVText?.toLowerCase() || ''
+    if (!confirm(`Bạn có chắc muốn đặt lại mật khẩu cho ${item.tenNV} (${item.maNVText})?\n\nMật khẩu mới sẽ là: ${username}@123`)) return
+
+    try {
+      await api.post('/auth/reset-password-public', { username })
+      alert(`✅ Đặt lại mật khẩu thành công!\n\nNhân viên: ${item.tenNV}\nUsername: ${username}\nMật khẩu mới: ${username}@123`)
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Có lỗi xảy ra khi đặt lại mật khẩu')
+    }
+  }
+
   const handleDelete = async (id: number) => {
     if (!confirm('Bạn có chắc muốn xóa nhân viên này?')) return
     
     try {
       await api.delete(`/employees/${id}`)
+      setSelectedIds(prev => prev.filter(i => i !== id))
       fetchData()
     } catch (error: any) {
       alert(error.response?.data?.error || 'Có lỗi xảy ra')
     }
+  }
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return
+    if (!confirm(`Bạn có chắc muốn xóa ${selectedIds.length} nhân viên đã chọn?`)) return
+    
+    try {
+      await Promise.all(selectedIds.map(id => api.delete(`/employees/${id}`)))
+      setSelectedIds([])
+      fetchData()
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Có lỗi xảy ra khi xóa')
+    }
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedIds.length === filteredEmployees.length) {
+      setSelectedIds([])
+    } else {
+      setSelectedIds(filteredEmployees.map(e => e.maNV))
+    }
+  }
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    )
   }
 
   const resetForm = () => {
@@ -131,6 +173,18 @@ const EmployeesPage = () => {
     resetForm()
     setShowModal(true)
   }
+
+  // Filter employees by search keyword
+  const filteredEmployees = employees.filter(emp => {
+    if (!searchKeyword.trim()) return true
+    const keyword = searchKeyword.toLowerCase()
+    return (
+      emp.tenNV?.toLowerCase().includes(keyword) ||
+      emp.maNVText?.toLowerCase().includes(keyword) ||
+      emp.email?.toLowerCase().includes(keyword) ||
+      emp.tenPB?.toLowerCase().includes(keyword)
+    )
+  })
 
   if (loading) {
     return (
@@ -166,12 +220,60 @@ const EmployeesPage = () => {
         </div>
       </div>
 
+      {/* Search */}
+      <div className="bg-[#1a1a1a] border border-[#2e2e2e] rounded-xl p-4">
+        <div className="flex gap-4">
+          <div className="flex-1 max-w-md">
+            <div className="relative">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                type="text"
+                value={searchKeyword}
+                onChange={(e) => setSearchKeyword(e.target.value)}
+                placeholder="Tìm theo mã NV, tên NV, email, phòng ban..."
+                className="w-full pl-10 pr-4 py-2 bg-[#2a2a2a] border border-[#3e3e3e] text-white rounded-lg focus:outline-none focus:border-blue-500"
+              />
+            </div>
+          </div>
+          {selectedIds.length > 0 && (
+            <button
+              onClick={handleBulkDelete}
+              className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              Xóa ({selectedIds.length})
+            </button>
+          )}
+          <button
+            onClick={fetchData}
+            className="flex items-center gap-2 px-4 py-2 bg-[#2a2a2a] hover:bg-[#3a3a3a] text-gray-300 rounded-lg transition"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Làm mới
+          </button>
+        </div>
+      </div>
+
       {/* Table */}
       <div className="bg-[#1a1a1a] border border-[#2e2e2e] rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-[#2e2e2e] bg-[#0f0f0f]">
+                <th className="w-10 px-4 py-3">
+                  <input
+                    type="checkbox"
+                    checked={filteredEmployees.length > 0 && selectedIds.length === filteredEmployees.length}
+                    onChange={toggleSelectAll}
+                    className="w-4 h-4 rounded border-gray-600 bg-[#2a2a2a] text-blue-500 focus:ring-blue-500 focus:ring-offset-0"
+                  />
+                </th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Mã NV</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Họ tên</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Phòng ban</th>
@@ -182,19 +284,27 @@ const EmployeesPage = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#2e2e2e]">
-              {employees.length === 0 ? (
+              {filteredEmployees.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-16 text-center">
+                  <td colSpan={8} className="px-6 py-16 text-center">
                     <svg className="w-12 h-12 mx-auto mb-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                     </svg>
-                    <p className="text-gray-400 font-medium">Chưa có nhân viên nào</p>
-                    <p className="text-gray-500 text-sm mt-1">Nhấn "Thêm nhân viên" để tạo mới</p>
+                    <p className="text-gray-400 font-medium">{searchKeyword ? 'Không tìm thấy nhân viên' : 'Chưa có nhân viên nào'}</p>
+                    <p className="text-gray-500 text-sm mt-1">{searchKeyword ? 'Thử từ khóa khác' : 'Nhấn "Thêm nhân viên" để tạo mới'}</p>
                   </td>
                 </tr>
               ) : (
-                employees.map((item) => (
-                  <tr key={item.maNV} className="hover:bg-[#252525] transition">
+                filteredEmployees.map((item) => (
+                  <tr key={item.maNV} className={`hover:bg-[#252525] transition ${selectedIds.includes(item.maNV) ? 'bg-blue-900/20' : ''}`}>
+                    <td className="w-10 px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(item.maNV)}
+                        onChange={() => toggleSelect(item.maNV)}
+                        className="w-4 h-4 rounded border-gray-600 bg-[#2a2a2a] text-blue-500 focus:ring-blue-500 focus:ring-offset-0"
+                      />
+                    </td>
                     <td className="px-4 py-3 text-sm text-gray-300 font-mono">{item.maNVText || `#${item.maNV}`}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
@@ -226,6 +336,15 @@ const EmployeesPage = () => {
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => handleResetPassword(item)}
+                        className="p-1.5 text-gray-400 hover:text-orange-400 transition"
+                        title="Đặt lại mật khẩu"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                         </svg>
                       </button>
                       <button

@@ -24,6 +24,8 @@ export interface HangHoa {
   Model?: string
   NamSX?: number
   TrangThai: TrangThaiHang
+  MaNV_DangDung?: number      // Nhân viên đang sử dụng thiết bị
+  TenNV_DangDung?: string     // Tên nhân viên (join từ NhanVien)
   ThongTinChiTiet?: string | ThongTinMayTinh // JSON string from DB or parsed object
   NgayTao?: Date
   NgayCapNhat?: Date

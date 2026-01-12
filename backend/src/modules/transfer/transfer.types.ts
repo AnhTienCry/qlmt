@@ -24,7 +24,9 @@ export interface CreateTransferDto {
 
 export interface TransferWithDetails extends DieuChuyen {
   TenNVGiao?: string
+  MaNVGiaoText?: string
   TenNVNhan?: string
+  MaNVNhanText?: string
   TenHang?: string
   TenKhoTu?: string
   TenKhoDen?: string

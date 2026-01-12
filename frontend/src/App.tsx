@@ -4,8 +4,6 @@ import { ProtectedRoute } from '@/components/auth'
 import { ToastProvider } from '@/components/ui'
 import HomePage from '@/pages/HomePage'
 import LoginPage from '@/pages/LoginPage'
-import RegisterPage from '@/pages/RegisterPage'
-import ResetPasswordPage from '@/pages/ResetPasswordPage'
 import NotFoundPage from '@/pages/NotFoundPage'
 import { ROUTES } from '@/constants'
 
@@ -47,8 +45,6 @@ function App() {
       
       {/* Public routes */}
       <Route path={ROUTES.LOGIN} element={<LoginPage />} />
-      <Route path={ROUTES.REGISTER} element={<RegisterPage />} />
-      <Route path={ROUTES.RESET_PASSWORD} element={<ResetPasswordPage />} />
       
       {/* Change password - requires authentication */}
       <Route

@@ -2,16 +2,14 @@ import { useState, useEffect } from 'react'
 import axios from '@/libs/axios'
 
 interface ThietBi {
-  MaXuat: number
-  SoPhieuX: string
-  NgayXuat: string
   MaHang: number
   MaHangText?: string
   TenHang: string
-  DonViTinh?: string
+  LoaiHang?: string
+  TrangThai?: string
+  NgayCap?: string
   TuKho?: string
   NguoiGiao?: string
-  DienGiai?: string
 }
 
 export default function MyComputerPage() {
@@ -65,7 +63,7 @@ export default function MyComputerPage() {
       ) : (
         <div className="grid gap-4">
           {devices.map((device) => (
-            <div key={device.MaXuat} className="bg-[#1a1a1a] border border-[#2e2e2e] rounded-xl p-5 hover:border-green-500/50 transition-colors">
+            <div key={device.MaHang} className="bg-[#1a1a1a] border border-[#2e2e2e] rounded-xl p-5 hover:border-green-500/50 transition-colors">
               <div className="flex items-start justify-between">
                 <div className="flex items-start gap-4">
                   <div className="w-12 h-12 bg-green-500/10 rounded-lg flex items-center justify-center text-green-400">
@@ -79,12 +77,14 @@ export default function MyComputerPage() {
                       <p className="text-gray-500 text-sm">Mã: {device.MaHangText}</p>
                     )}
                     <div className="flex flex-wrap gap-3 mt-2">
-                      <span className="text-gray-400 text-sm flex items-center gap-1">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        Ngày cấp: {formatDate(device.NgayXuat)}
-                      </span>
+                      {device.NgayCap && (
+                        <span className="text-gray-400 text-sm flex items-center gap-1">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          Ngày cấp: {formatDate(device.NgayCap)}
+                        </span>
+                      )}
                       {device.TuKho && (
                         <span className="text-gray-400 text-sm flex items-center gap-1">
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -102,9 +102,6 @@ export default function MyComputerPage() {
                         </span>
                       )}
                     </div>
-                    {device.DienGiai && (
-                      <p className="text-gray-500 text-sm mt-2 italic">"{device.DienGiai}"</p>
-                    )}
                   </div>
                 </div>
                 <span className="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-xs font-medium">

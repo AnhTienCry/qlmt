@@ -323,6 +323,9 @@ export default function UserProposalsPage() {
                       <p className="text-red-400 text-sm font-medium">IT từ chối</p>
                       <p className="text-gray-400 text-xs">{selectedProposal.itXuLy.ngayXuLy ? new Date(selectedProposal.itXuLy.ngayXuLy).toLocaleString('vi-VN') : ''}</p>
                       <p className="text-gray-300 text-xs">Bởi: {selectedProposal.itXuLy.tenNV || 'IT'}</p>
+                      {selectedProposal.ghiChuIT && (
+                        <p className="text-red-300 text-xs mt-1 italic">Lý do: {selectedProposal.ghiChuIT}</p>
+                      )}
                     </div>
                   )}
 

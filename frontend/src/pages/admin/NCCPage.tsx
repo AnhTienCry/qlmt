@@ -22,6 +22,7 @@ const NCCPage = () => {
   const [editingNcc, setEditingNcc] = useState<NCC | null>(null)
   const [searchKeyword, setSearchKeyword] = useState('')
   const [saving, setSaving] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<number[]>([])
   const [formData, setFormData] = useState({
     MaSoThue: '',
     TenNCC: '',
@@ -103,9 +104,23 @@ const NCCPage = () => {
     if (!confirm(`Bạn có chắc muốn xóa "${ncc.TenNCC}"?`)) return
     try {
       await axios.delete(`/ncc/${ncc.MaNCC}`)
+      setSelectedIds(prev => prev.filter(id => id !== ncc.MaNCC))
       fetchNccs()
     } catch (error: any) {
       alert(error.response?.data?.message || 'Có lỗi xảy ra')
+    }
+  }
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return
+    if (!confirm(`Bạn có chắc muốn xóa ${selectedIds.length} nhà cung cấp đã chọn?`)) return
+    
+    try {
+      await Promise.all(selectedIds.map(id => axios.delete(`/ncc/${id}`)))
+      setSelectedIds([])
+      fetchNccs()
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Có lỗi xảy ra khi xóa')
     }
   }
 
@@ -208,6 +223,14 @@ const NCCPage = () => {
         subtitle={`Tổng: ${nccs.length} nhà cung cấp`}
         actions={
           <div className="flex gap-3">
+            {selectedIds.length > 0 && (
+              <Button variant="danger" onClick={handleBulkDelete}>
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                Xóa ({selectedIds.length})
+              </Button>
+            )}
             <Button variant="secondary" onClick={() => exportNCC(nccs)}>
               <Download className="w-4 h-4 mr-2" />
               Xuất Excel
@@ -249,6 +272,9 @@ const NCCPage = () => {
           loading={loading}
           emptyText="Chưa có nhà cung cấp nào"
           rowKey="MaNCC"
+          selectable
+          selectedIds={selectedIds}
+          onSelectChange={(ids) => setSelectedIds(ids as number[])}
         />
       </Card>
 

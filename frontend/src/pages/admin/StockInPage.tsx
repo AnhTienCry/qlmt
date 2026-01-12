@@ -41,6 +41,7 @@ const StockInPage = () => {
   const [editingId, setEditingId] = useState<number | null>(null)
   const [searchKeyword, setSearchKeyword] = useState('')
   const [saving, setSaving] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<number[]>([])
   
   const [hangHoas, setHangHoas] = useState<HangHoa[]>([])
   const [khos, setKhos] = useState<Kho[]>([])
@@ -59,6 +60,7 @@ const StockInPage = () => {
     MaHang: '',
     MaKho: '',
     NguoiGiao: '',
+    LoaiNguoiGiao: 'ncc' as 'ncc' | 'nv', // NCC hoặc NV
     NguoiNhan: '',
     DienGiai: ''
   })
@@ -105,6 +107,7 @@ const StockInPage = () => {
       MaHang: '',
       MaKho: '',
       NguoiGiao: '',
+      LoaiNguoiGiao: 'ncc',
       NguoiNhan: '',
       DienGiai: ''
     })
@@ -119,6 +122,7 @@ const StockInPage = () => {
       MaHang: item.MaHang?.toString() || '',
       MaKho: item.MaKho?.toString() || '',
       NguoiGiao: item.NguoiGiao?.toString() || '',
+      LoaiNguoiGiao: 'ncc', // Default, could be detected from data
       NguoiNhan: item.NguoiNhan?.toString() || '',
       DienGiai: item.DienGiai || ''
     })
@@ -161,9 +165,23 @@ const StockInPage = () => {
     if (!confirm(`Bạn có chắc muốn xóa phiếu "${item.SoPhieuN}"?`)) return
     try {
       await axios.delete(`/stock/nhaphang/${item.MaNhap}`)
+      setSelectedIds(prev => prev.filter(id => id !== item.MaNhap))
       fetchData()
     } catch (error: any) {
       alert(error.response?.data?.message || 'Có lỗi xảy ra')
+    }
+  }
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return
+    if (!confirm(`Bạn có chắc muốn xóa ${selectedIds.length} phiếu nhập đã chọn?`)) return
+    
+    try {
+      await Promise.all(selectedIds.map(id => axios.delete(`/stock/nhaphang/${id}`)))
+      setSelectedIds([])
+      fetchData()
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Có lỗi xảy ra khi xóa')
     }
   }
 
@@ -292,6 +310,14 @@ const StockInPage = () => {
         }
         actions={
           <div className="flex gap-3">
+            {selectedIds.length > 0 && (
+              <Button variant="danger" onClick={handleBulkDelete}>
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                Xóa ({selectedIds.length})
+              </Button>
+            )}
             <Button variant="secondary" onClick={() => exportStockIn(items.map(i => ({
               MaNhap: i.MaNhap,
               TenHang: i.TenHang,
@@ -343,6 +369,9 @@ const StockInPage = () => {
           loading={loading}
           emptyText="Chưa có phiếu nhập hàng"
           rowKey="MaNhap"
+          selectable
+          selectedIds={selectedIds}
+          onSelectChange={(ids) => setSelectedIds(ids as number[])}
         />
       </Card>
 
@@ -400,15 +429,55 @@ const StockInPage = () => {
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <SelectWithAdd
-              label="Người giao (NCC)"
-              options={nccs.map(n => ({ value: n.MaNCC, label: `${n.TenNCC}${n.MaSoThue ? ` (${n.MaSoThue})` : ''}` }))}
-              value={formData.NguoiGiao}
-              onChange={(v) => setFormData({ ...formData, NguoiGiao: v })}
-              placeholder="Chọn NCC..."
-              onAddClick={() => setShowAddNCC(true)}
-              addTitle="Thêm nhà cung cấp mới"
-            />
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Người giao</label>
+              {/* Tabs để chọn loại người giao */}
+              <div className="flex mb-2 border border-[#2e2e2e] rounded-lg overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, LoaiNguoiGiao: 'ncc', NguoiGiao: '' })}
+                  className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${
+                    formData.LoaiNguoiGiao === 'ncc' 
+                      ? 'bg-green-500/20 text-green-400 border-r border-[#2e2e2e]' 
+                      : 'bg-[#1a1a1a] text-gray-400 hover:text-white border-r border-[#2e2e2e]'
+                  }`}
+                >
+                  NCC
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, LoaiNguoiGiao: 'nv', NguoiGiao: '' })}
+                  className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${
+                    formData.LoaiNguoiGiao === 'nv' 
+                      ? 'bg-blue-500/20 text-blue-400' 
+                      : 'bg-[#1a1a1a] text-gray-400 hover:text-white'
+                  }`}
+                >
+                  Nhân viên
+                </button>
+              </div>
+              {formData.LoaiNguoiGiao === 'ncc' ? (
+                <SelectWithAdd
+                  label=""
+                  options={nccs.map(n => ({ value: n.MaNCC, label: `${n.TenNCC}${n.MaSoThue ? ` (${n.MaSoThue})` : ''}` }))}
+                  value={formData.NguoiGiao}
+                  onChange={(v) => setFormData({ ...formData, NguoiGiao: v })}
+                  placeholder="Chọn NCC..."
+                  onAddClick={() => setShowAddNCC(true)}
+                  addTitle="Thêm nhà cung cấp mới"
+                />
+              ) : (
+                <SelectWithAdd
+                  label=""
+                  options={nhanViens.map(nv => ({ value: nv.maNV, label: `${nv.tenNV}${nv.maNVText ? ` (${nv.maNVText})` : ''}` }))}
+                  value={formData.NguoiGiao}
+                  onChange={(v) => setFormData({ ...formData, NguoiGiao: v })}
+                  placeholder="Chọn nhân viên giao..."
+                  onAddClick={() => setShowAddNhanVien(true)}
+                  addTitle="Thêm nhân viên mới"
+                />
+              )}
+            </div>
             <SelectWithAdd
               label="Người nhận (NV)"
               options={nhanViens.map(nv => ({ value: nv.maNV, label: `${nv.tenNV}${nv.maNVText ? ` (${nv.maNVText})` : ''}` }))}

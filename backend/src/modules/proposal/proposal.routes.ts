@@ -47,6 +47,9 @@ router.post('/:id/feedback', itMiddleware, proposalController.sendFeedback.bind(
 // POST /api/proposals/:id/complete - IT đánh dấu hoàn thành
 router.post('/:id/complete', itMiddleware, proposalController.complete.bind(proposalController))
 
+// DELETE /api/proposals/:id - IT xóa đề xuất
+router.delete('/:id', itMiddleware, proposalController.deleteProposal.bind(proposalController))
+
 // ========== Routes cho GIÁM ĐỐC ==========
 
 // POST /api/proposals/:id/approve - GĐ duyệt

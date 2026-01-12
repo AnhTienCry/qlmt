@@ -224,11 +224,11 @@ export function exportTransfer(items: any[]) {
   const columns = [
     { key: 'SoPhieuDC', title: 'Số phiếu DC' },
     { key: 'NgayDC', title: 'Ngày' },
-    { key: 'MaNV1', title: 'Mã NV giao' },
-    { key: 'TenNV1', title: 'Tên NV giao' },
-    { key: 'MaNV2', title: 'Mã NV nhận' },
-    { key: 'TenNV2', title: 'Tên NV nhận' },
-    { key: 'MaHang', title: 'Mã hàng' },
+    { key: 'MaNVGiaoText', title: 'Mã NV giao' },
+    { key: 'TenNVGiao', title: 'Tên NV giao' },
+    { key: 'MaNVNhanText', title: 'Mã NV nhận' },
+    { key: 'TenNVNhan', title: 'Tên NV nhận' },
+    { key: 'MaHangText', title: 'Mã hàng' },
     { key: 'TenHang', title: 'Tên hàng' },
     { key: 'DienGiai', title: 'Diễn giải' },
   ]

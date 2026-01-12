@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { getProposals, processProposal, submitToDirector, itRejectProposal, completeProposal, updatePriority, itDirectApprove, sendFeedback } from '@/libs/proposal'
+import { getProposals, processProposal, submitToDirector, itRejectProposal, completeProposal, updatePriority, itDirectApprove, sendFeedback, deleteProposal } from '@/libs/proposal'
 import { Proposal } from '@/types/proposal.types'
 import { PROPOSAL_STATUS, PROPOSAL_TYPES, PRIORITY_LEVELS } from '@/constants'
 import { useToast, FeedbackTimeline, DirectorFeedbackTimeline, UserFeedbackTimeline, SearchInput } from '@/components/ui'
@@ -22,6 +22,8 @@ export default function ITProposalsPage() {
   // Edit mode for IT approved proposals
   const [editMode, setEditMode] = useState(false)
   const [editAction, setEditAction] = useState<'none' | 'forward' | 'reject'>('none')
+  // Reject form state
+  const [showRejectForm, setShowRejectForm] = useState(false)
 
   // Lọc theo search
   const filteredProposals = proposals.filter(p => {
@@ -157,6 +159,25 @@ export default function ITProposalsPage() {
     } catch (error: any) {
       console.error('Error IT approving:', error)
       toast.error(error.response?.data?.message || 'Lỗi duyệt đề xuất')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  // ===== IT xóa đề xuất =====
+  const handleDelete = async (id: number) => {
+    if (!confirm('Bạn có chắc chắn muốn xóa đề xuất này? Thao tác này không thể hoàn tác.')) {
+      return
+    }
+    setActionLoading(true)
+    try {
+      await deleteProposal(id)
+      toast.success('Đã xóa đề xuất thành công!')
+      setSelectedProposal(null)
+      await fetchProposals()
+    } catch (error: any) {
+      console.error('Error deleting proposal:', error)
+      toast.error(error.response?.data?.message || 'Lỗi xóa đề xuất')
     } finally {
       setActionLoading(false)
     }
@@ -311,15 +332,28 @@ export default function ITProposalsPage() {
                 <td className="px-6 py-4">{getStatusBadge(proposal.trangThai)}</td>
                 <td className="px-6 py-4 text-gray-400">{new Date(proposal.ngayTao).toLocaleDateString('vi-VN')}</td>
                 <td className="px-6 py-4">
-                  <button
-                    onClick={() => {
-                      setSelectedProposal(proposal)
-                      setNewPriority(proposal.mucDoUuTien)
-                    }}
-                    className="text-cyan-400 hover:text-cyan-300"
-                  >
-                    Xem chi tiết
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        setSelectedProposal(proposal)
+                        setNewPriority(proposal.mucDoUuTien)
+                        setShowRejectForm(false)
+                        setGhiChu('')
+                      }}
+                      className="text-cyan-400 hover:text-cyan-300"
+                    >
+                      Xem
+                    </button>
+                    <button
+                      onClick={() => handleDelete(proposal.maYC)}
+                      className="text-red-400 hover:text-red-300"
+                      title="Xóa đề xuất"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -333,7 +367,7 @@ export default function ITProposalsPage() {
           <div className="bg-[#1a1a1a] border border-[#2e2e2e] rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-white">Chi tiết đề xuất #{selectedProposal.maYC}</h2>
-              <button onClick={() => { setSelectedProposal(null); setGhiChu(''); setKetQua(''); setNewPriority(''); }} className="text-gray-400 hover:text-white">
+              <button onClick={() => { setSelectedProposal(null); setGhiChu(''); setKetQua(''); setNewPriority(''); setShowRejectForm(false); }} className="text-gray-400 hover:text-white">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -437,6 +471,9 @@ export default function ITProposalsPage() {
                       <p className="text-red-400 text-sm font-medium">IT từ chối</p>
                       <p className="text-gray-400 text-xs">{selectedProposal.itXuLy.ngayXuLy ? new Date(selectedProposal.itXuLy.ngayXuLy).toLocaleString('vi-VN') : ''}</p>
                       <p className="text-gray-300 text-xs">Bởi: {selectedProposal.itXuLy.tenNV || 'IT'}</p>
+                      {selectedProposal.ghiChuIT && (
+                        <p className="text-red-300 text-xs mt-1 italic">Lý do: {selectedProposal.ghiChuIT}</p>
+                      )}
                     </div>
                   )}
 
@@ -598,64 +635,120 @@ export default function ITProposalsPage() {
               {/* Actions cho trạng thái PENDING */}
               {selectedProposal.trangThai === 'pending' && (
                 <div className="pt-4 border-t border-[#2e2e2e] space-y-4">
-                  <div className="flex gap-3 flex-wrap">
-                    <button
-                      onClick={() => handleProcess(selectedProposal.maYC)}
-                      disabled={actionLoading}
-                      className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 disabled:opacity-50"
-                    >
-                      Xác nhận & Bắt đầu xử lý
-                    </button>
-                    
-                    {/* Nút IT duyệt trực tiếp */}
-                    <button
-                      onClick={() => handleItDirectApprove(selectedProposal.maYC)}
-                      disabled={actionLoading}
-                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
-                    >
-                      ✓ IT duyệt
-                    </button>
-                    
-                    <button
-                      onClick={() => handleReject(selectedProposal.maYC)}
-                      disabled={actionLoading}
-                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
-                    >
-                      Từ chối
-                    </button>
-                  </div>
+                  {!showRejectForm ? (
+                    <div className="flex gap-3 flex-wrap">
+                      <button
+                        onClick={() => handleProcess(selectedProposal.maYC)}
+                        disabled={actionLoading}
+                        className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 disabled:opacity-50"
+                      >
+                        Xác nhận & Bắt đầu xử lý
+                      </button>
+                      
+                      {/* Nút IT duyệt trực tiếp */}
+                      <button
+                        onClick={() => handleItDirectApprove(selectedProposal.maYC)}
+                        disabled={actionLoading}
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                      >
+                        ✓ IT duyệt
+                      </button>
+                      
+                      <button
+                        onClick={() => setShowRejectForm(true)}
+                        disabled={actionLoading}
+                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                      >
+                        Từ chối
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 space-y-3">
+                      <p className="text-red-400 text-sm font-medium">Nhập lý do từ chối:</p>
+                      <textarea
+                        value={ghiChu}
+                        onChange={(e) => setGhiChu(e.target.value)}
+                        placeholder="Lý do từ chối đề xuất..."
+                        className="w-full bg-[#2e2e2e] border border-[#3e3e3e] text-white rounded-lg px-4 py-3"
+                        rows={2}
+                      />
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => handleReject(selectedProposal.maYC)}
+                          disabled={actionLoading || !ghiChu.trim()}
+                          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                        >
+                          Xác nhận từ chối
+                        </button>
+                        <button
+                          onClick={() => { setShowRejectForm(false); setGhiChu('') }}
+                          className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+                        >
+                          Hủy
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
               {/* Actions cho trạng thái IT_PROCESSING */}
               {selectedProposal.trangThai === 'it_processing' && (
                 <div className="pt-4 border-t border-[#2e2e2e] space-y-4">
-                  <div className="flex gap-3 flex-wrap">
-                    <button
-                      onClick={() => handleSubmitToDirector(selectedProposal.maYC)}
-                      disabled={actionLoading}
-                      className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
-                    >
-                      Chuyển lên GĐ duyệt
-                    </button>
-                    
-                    {/* Nút IT duyệt trực tiếp */}
-                    <button
-                      onClick={() => handleItDirectApprove(selectedProposal.maYC)}
-                      disabled={actionLoading}
-                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
-                    >
-                      ✓ IT duyệt
-                    </button>
-                    
-                    <button
-                      onClick={() => handleReject(selectedProposal.maYC)}
-                      disabled={actionLoading}
-                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
-                    >
-                      Từ chối
-                    </button>
-                  </div>
+                  {!showRejectForm ? (
+                    <div className="flex gap-3 flex-wrap">
+                      <button
+                        onClick={() => handleSubmitToDirector(selectedProposal.maYC)}
+                        disabled={actionLoading}
+                        className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
+                      >
+                        Chuyển lên GĐ duyệt
+                      </button>
+                      
+                      {/* Nút IT duyệt trực tiếp */}
+                      <button
+                        onClick={() => handleItDirectApprove(selectedProposal.maYC)}
+                        disabled={actionLoading}
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                      >
+                        ✓ IT duyệt
+                      </button>
+                      
+                      <button
+                        onClick={() => setShowRejectForm(true)}
+                        disabled={actionLoading}
+                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                      >
+                        Từ chối
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 space-y-3">
+                      <p className="text-red-400 text-sm font-medium">Nhập lý do từ chối:</p>
+                      <textarea
+                        value={ghiChu}
+                        onChange={(e) => setGhiChu(e.target.value)}
+                        placeholder="Lý do từ chối đề xuất..."
+                        className="w-full bg-[#2e2e2e] border border-[#3e3e3e] text-white rounded-lg px-4 py-3"
+                        rows={2}
+                      />
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => handleReject(selectedProposal.maYC)}
+                          disabled={actionLoading || !ghiChu.trim()}
+                          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                        >
+                          Xác nhận từ chối
+                        </button>
+                        <button
+                          onClick={() => { setShowRejectForm(false); setGhiChu('') }}
+                          className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+                        >
+                          Hủy
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 

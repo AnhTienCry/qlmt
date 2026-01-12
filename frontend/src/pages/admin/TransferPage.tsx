@@ -12,8 +12,10 @@ interface DieuChuyen {
   TenHang?: string
   NguoiGiao?: number
   TenNVGiao?: string
+  MaNVGiaoText?: string
   NguoiNhan?: number
   TenNVNhan?: string
+  MaNVNhanText?: string
   DienGiai?: string
 }
 
@@ -26,6 +28,7 @@ interface HangHoa {
 
 interface NhanVien {
   maNV: number
+  maNVText?: string
   tenNV: string
 }
 
@@ -41,6 +44,7 @@ const TransferPage = () => {
   const [showModal, setShowModal] = useState(false)
   const [searchKeyword, setSearchKeyword] = useState('')
   const [saving, setSaving] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<number[]>([])
   
   const [hangHoas, setHangHoas] = useState<HangHoa[]>([])
   const [nhanViens, setNhanViens] = useState<NhanVien[]>([])
@@ -145,9 +149,23 @@ const TransferPage = () => {
     if (!confirm(`Bạn có chắc muốn xóa phiếu "${item.SoPhieuDC}"?`)) return
     try {
       await axios.delete(`/transfer/${item.MaDC}`)
+      setSelectedIds(prev => prev.filter(id => id !== item.MaDC))
       fetchData()
     } catch (error: any) {
       alert(error.response?.data?.message || 'Có lỗi xảy ra')
+    }
+  }
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return
+    if (!confirm(`Bạn có chắc muốn xóa ${selectedIds.length} phiếu điều chuyển đã chọn?`)) return
+    
+    try {
+      await Promise.all(selectedIds.map(id => axios.delete(`/transfer/${id}`)))
+      setSelectedIds([])
+      fetchData()
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Có lỗi xảy ra khi xóa')
     }
   }
 
@@ -181,7 +199,10 @@ const TransferPage = () => {
           <svg className="w-4 h-4 mr-2 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
           </svg>
-          <span className="text-gray-300">{item.TenNVGiao || '-'}</span>
+          <span className="text-gray-300">
+            {item.TenNVGiao || '-'}
+            {item.MaNVGiaoText && <span className="text-gray-500 text-xs ml-1">({item.MaNVGiaoText})</span>}
+          </span>
         </div>
       )
     },
@@ -193,7 +214,10 @@ const TransferPage = () => {
           <svg className="w-4 h-4 mr-2 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
           </svg>
-          <span className="text-gray-300">{item.TenNVNhan || '-'}</span>
+          <span className="text-gray-300">
+            {item.TenNVNhan || '-'}
+            {item.MaNVNhanText && <span className="text-gray-500 text-xs ml-1">({item.MaNVNhanText})</span>}
+          </span>
         </div>
       )
     },
@@ -235,13 +259,24 @@ const TransferPage = () => {
         }
         actions={
           <div className="flex gap-3">
+            {selectedIds.length > 0 && (
+              <Button variant="danger" onClick={handleBulkDelete}>
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                Xóa ({selectedIds.length})
+              </Button>
+            )}
             <Button variant="secondary" onClick={() => exportTransfer(items.map(i => ({
-              MaDC: i.MaDC,
-              TenHang: i.TenHang,
-              TenNVNhan: i.TenNVNhan,
-              TenNVGiao: i.TenNVGiao,
+              SoPhieuDC: i.SoPhieuDC,
               NgayDC: i.NgayDC,
-              LyDo: i.DienGiai
+              MaNVGiaoText: i.MaNVGiaoText || '',
+              TenNVGiao: i.TenNVGiao || '',
+              MaNVNhanText: i.MaNVNhanText || '',
+              TenNVNhan: i.TenNVNhan || '',
+              MaHangText: i.MaHang,
+              TenHang: i.TenHang || '',
+              DienGiai: i.DienGiai || ''
             })))}>
               <Download className="w-4 h-4 mr-2" />
               Xuất Excel
@@ -283,6 +318,9 @@ const TransferPage = () => {
           loading={loading}
           emptyText="Chưa có phiếu điều chuyển nào"
           rowKey="MaDC"
+          selectable
+          selectedIds={selectedIds}
+          onSelectChange={(ids) => setSelectedIds(ids as number[])}
         />
       </Card>
 
@@ -332,14 +370,14 @@ const TransferPage = () => {
           <div className="grid grid-cols-2 gap-4">
             <Select
               label="Người giao (đang giữ) *"
-              options={nhanViens.map(nv => ({ value: nv.maNV, label: `${nv.maNV} - ${nv.tenNV}` }))}
+              options={nhanViens.map(nv => ({ value: nv.maNV, label: `${nv.tenNV}${nv.maNVText ? ` (${nv.maNVText})` : ''}` }))}
               value={formData.NguoiGiao}
               onChange={(v) => setFormData({ ...formData, NguoiGiao: v })}
               placeholder="-- Chọn nhân viên --"
             />
             <Select
               label="Người nhận *"
-              options={nhanViens.map(nv => ({ value: nv.maNV, label: `${nv.maNV} - ${nv.tenNV}` }))}
+              options={nhanViens.map(nv => ({ value: nv.maNV, label: `${nv.tenNV}${nv.maNVText ? ` (${nv.maNVText})` : ''}` }))}
               value={formData.NguoiNhan}
               onChange={(v) => setFormData({ ...formData, NguoiNhan: v })}
               placeholder="-- Chọn nhân viên --"

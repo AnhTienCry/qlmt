@@ -56,14 +56,9 @@ export default function Header() {
                 </Button>
               </>
             ) : (
-              <>
-                <Link to={ROUTES.LOGIN}>
-                  <Button variant="ghost">Đăng nhập</Button>
-                </Link>
-                <Link to={ROUTES.REGISTER}>
-                  <Button>Đăng ký</Button>
-                </Link>
-              </>
+              <Link to={ROUTES.LOGIN}>
+                <Button variant="ghost">Đăng nhập</Button>
+              </Link>
             )}
           </nav>
         </div>

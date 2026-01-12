@@ -5,23 +5,24 @@ export const hanghoaService = {
   // Lấy tất cả hàng hóa
   async getAll(filters?: { loaiHang?: string; trangThai?: string }): Promise<HangHoa[]> {
     let query = `
-      SELECT MaHang, MaTS, MaTS as MaHangText, LoaiHang, TenHang, Hang, Model, NamSX, 
-             TrangThai, ThongTinChiTiet, NgayTao, NgayCapNhat
-      FROM HangHoa
+      SELECT hh.MaHang, hh.MaTS, hh.MaTS as MaHangText, hh.LoaiHang, hh.TenHang, hh.Hang, hh.Model, hh.NamSX, 
+             hh.TrangThai, hh.MaNV_DangDung, nv.TenNV as TenNV_DangDung, hh.ThongTinChiTiet, hh.NgayTao, hh.NgayCapNhat
+      FROM HangHoa hh
+      LEFT JOIN NhanVien nv ON hh.MaNV_DangDung = nv.MaNV
       WHERE 1=1
     `
     const params: Record<string, any> = {}
     
     if (filters?.loaiHang) {
-      query += ' AND LoaiHang = @loaiHang'
+      query += ' AND hh.LoaiHang = @loaiHang'
       params.loaiHang = filters.loaiHang
     }
     if (filters?.trangThai) {
-      query += ' AND TrangThai = @trangThai'
+      query += ' AND hh.TrangThai = @trangThai'
       params.trangThai = filters.trangThai
     }
     
-    query += ' ORDER BY NgayTao DESC'
+    query += ' ORDER BY hh.NgayTao DESC'
     
     const result = await db.query<HangHoa>(query, params)
     return result.recordset
@@ -30,10 +31,11 @@ export const hanghoaService = {
   // Lấy theo ID
   async getById(id: number): Promise<HangHoa | null> {
     const result = await db.query<HangHoa>(`
-      SELECT MaHang, MaTS, LoaiHang, TenHang, Hang, Model, NamSX, 
-             TrangThai, ThongTinChiTiet, NgayTao, NgayCapNhat
-      FROM HangHoa
-      WHERE MaHang = @id
+      SELECT hh.MaHang, hh.MaTS, hh.LoaiHang, hh.TenHang, hh.Hang, hh.Model, hh.NamSX, 
+             hh.TrangThai, hh.MaNV_DangDung, nv.TenNV as TenNV_DangDung, hh.ThongTinChiTiet, hh.NgayTao, hh.NgayCapNhat
+      FROM HangHoa hh
+      LEFT JOIN NhanVien nv ON hh.MaNV_DangDung = nv.MaNV
+      WHERE hh.MaHang = @id
     `, { id })
     return result.recordset[0] || null
   },
@@ -41,14 +43,16 @@ export const hanghoaService = {
   // Tìm kiếm
   async search(keyword: string): Promise<HangHoa[]> {
     const result = await db.query<HangHoa>(`
-      SELECT MaHang, MaTS, LoaiHang, TenHang, Hang, Model, NamSX, 
-             TrangThai, ThongTinChiTiet, NgayTao, NgayCapNhat
-      FROM HangHoa
-      WHERE TenHang LIKE @keyword 
-         OR MaTS LIKE @keyword
-         OR Hang LIKE @keyword
-         OR Model LIKE @keyword
-      ORDER BY TenHang
+      SELECT hh.MaHang, hh.MaTS, hh.LoaiHang, hh.TenHang, hh.Hang, hh.Model, hh.NamSX, 
+             hh.TrangThai, hh.MaNV_DangDung, nv.TenNV as TenNV_DangDung, hh.ThongTinChiTiet, hh.NgayTao, hh.NgayCapNhat
+      FROM HangHoa hh
+      LEFT JOIN NhanVien nv ON hh.MaNV_DangDung = nv.MaNV
+      WHERE hh.TenHang LIKE @keyword 
+         OR hh.MaTS LIKE @keyword
+         OR hh.Hang LIKE @keyword
+         OR hh.Model LIKE @keyword
+         OR nv.TenNV LIKE @keyword
+      ORDER BY hh.TenHang
     `, { keyword: `%${keyword}%` })
     return result.recordset
   },

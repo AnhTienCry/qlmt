@@ -16,6 +16,7 @@ const WarehousesPage = () => {
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
+  const [selectedIds, setSelectedIds] = useState<number[]>([])
   
   // Form state
   const [maKhoText, setMaKhoText] = useState('')
@@ -82,10 +83,38 @@ const WarehousesPage = () => {
     
     try {
       await api.delete(`/warehouses/${id}`)
+      setSelectedIds(prev => prev.filter(i => i !== id))
       fetchData()
     } catch (error: any) {
       alert(error.response?.data?.error || 'Có lỗi xảy ra')
     }
+  }
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return
+    if (!confirm(`Bạn có chắc muốn xóa ${selectedIds.length} kho đã chọn?`)) return
+    
+    try {
+      await Promise.all(selectedIds.map(id => api.delete(`/warehouses/${id}`)))
+      setSelectedIds([])
+      fetchData()
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Có lỗi xảy ra khi xóa')
+    }
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedIds.length === warehouses.length) {
+      setSelectedIds([])
+    } else {
+      setSelectedIds(warehouses.map(w => w.maKho))
+    }
+  }
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    )
   }
 
   const resetForm = () => {
@@ -117,6 +146,17 @@ const WarehousesPage = () => {
           <p className="text-gray-500 text-sm mt-1">Danh sách các kho lưu trữ thiết bị</p>
         </div>
         <div className="flex gap-3">
+          {selectedIds.length > 0 && (
+            <button
+              onClick={handleBulkDelete}
+              className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              Xóa ({selectedIds.length})
+            </button>
+          )}
           <button
             onClick={() => exportWarehouses(warehouses.map(w => ({ MaKho: w.maKhoText, TenKho: w.tenKho, DiaChi: w.diaChi })))}
             className="flex items-center gap-2 px-4 py-2 bg-[#2a2a2a] hover:bg-[#3a3a3a] text-gray-300 rounded-lg transition"
@@ -140,6 +180,14 @@ const WarehousesPage = () => {
           <table className="w-full">
             <thead>
               <tr className="border-b border-[#2e2e2e] bg-[#0f0f0f]">
+                <th className="w-10 px-4 py-3">
+                  <input
+                    type="checkbox"
+                    checked={warehouses.length > 0 && selectedIds.length === warehouses.length}
+                    onChange={toggleSelectAll}
+                    className="w-4 h-4 rounded border-gray-600 bg-[#2a2a2a] text-blue-500 focus:ring-blue-500 focus:ring-offset-0"
+                  />
+                </th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Mã kho</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Tên kho</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Địa chỉ</th>
@@ -149,7 +197,7 @@ const WarehousesPage = () => {
             <tbody className="divide-y divide-[#2e2e2e]">
               {warehouses.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-6 py-16 text-center">
+                  <td colSpan={5} className="px-6 py-16 text-center">
                     <svg className="w-12 h-12 mx-auto mb-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                     </svg>
@@ -159,7 +207,15 @@ const WarehousesPage = () => {
                 </tr>
               ) : (
                 warehouses.map((item) => (
-                  <tr key={item.maKho} className="hover:bg-[#252525] transition">
+                  <tr key={item.maKho} className={`hover:bg-[#252525] transition ${selectedIds.includes(item.maKho) ? 'bg-blue-900/20' : ''}`}>
+                    <td className="w-10 px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(item.maKho)}
+                        onChange={() => toggleSelect(item.maKho)}
+                        className="w-4 h-4 rounded border-gray-600 bg-[#2a2a2a] text-blue-500 focus:ring-blue-500 focus:ring-offset-0"
+                      />
+                    </td>
                     <td className="px-4 py-3 text-sm text-gray-300 font-mono">{item.maKhoText}</td>
                     <td className="px-4 py-3 text-sm text-white font-medium">{item.tenKho}</td>
                     <td className="px-4 py-3 text-sm text-gray-400">{item.diaChi || '-'}</td>

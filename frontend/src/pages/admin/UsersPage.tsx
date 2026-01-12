@@ -34,6 +34,7 @@ export default function UsersPage() {
   const [users, setUsers] = useState<AdminUser[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
+  const [selectedIds, setSelectedIds] = useState<number[]>([])
   
   // Modal states
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -135,12 +136,26 @@ export default function UsersPage() {
     try {
       setFormLoading(true)
       await authApi.deleteUser(selectedUser.UserId)
+      setSelectedIds(prev => prev.filter(id => id !== selectedUser.UserId))
       setShowDeleteModal(false)
       fetchUsers()
     } catch (error: any) {
       setFormError(error.response?.data?.message || 'Xóa thất bại')
     } finally {
       setFormLoading(false)
+    }
+  }
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return
+    if (!confirm(`Bạn có chắc muốn xóa ${selectedIds.length} người dùng đã chọn?`)) return
+    
+    try {
+      await Promise.all(selectedIds.map(id => authApi.deleteUser(id)))
+      setSelectedIds([])
+      fetchUsers()
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Có lỗi xảy ra khi xóa')
     }
   }
 
@@ -259,6 +274,12 @@ export default function UsersPage() {
         icon={<Users className="w-6 h-6" />}
         actions={
           <div className="flex gap-3">
+            {selectedIds.length > 0 && (
+              <Button variant="danger" onClick={handleBulkDelete}>
+                <Trash2 className="w-4 h-4 mr-2" />
+                Xóa ({selectedIds.length})
+              </Button>
+            )}
             <Button variant="secondary" onClick={() => exportUsers(users)}>
               <Download className="w-4 h-4 mr-2" />
               Xuất Excel
@@ -289,6 +310,10 @@ export default function UsersPage() {
           data={filteredUsers}
           loading={loading}
           emptyText="Không có người dùng nào"
+          rowKey="UserId"
+          selectable
+          selectedIds={selectedIds}
+          onSelectChange={(ids) => setSelectedIds(ids as number[])}
         />
       </div>
 

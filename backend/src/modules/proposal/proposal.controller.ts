@@ -485,6 +485,29 @@ export class ProposalController {
       })
     }
   }
+
+  /**
+   * DELETE /api/proposals/:id
+   * IT xóa đề xuất
+   */
+  async deleteProposal(req: Request, res: Response) {
+    try {
+      const id = parseInt(req.params.id)
+      
+      await proposalService.deleteProposal(id)
+
+      res.json({
+        success: true,
+        message: 'Đã xóa đề xuất thành công',
+      })
+    } catch (error: any) {
+      console.error('Error deleting proposal:', error)
+      res.status(400).json({
+        success: false,
+        message: error.message || 'Lỗi xóa đề xuất',
+      })
+    }
+  }
 }
 
 export const proposalController = new ProposalController()

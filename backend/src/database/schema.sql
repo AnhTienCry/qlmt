@@ -162,6 +162,7 @@ BEGIN
         Model NVARCHAR(100),
         NamSX INT,
         TrangThai NVARCHAR(50) DEFAULT N'Mới',  -- 'Mới', 'Đang dùng', 'Hỏng', 'Thanh lý'
+        MaNV_DangDung INT,                   -- Nhân viên đang sử dụng thiết bị
         ThongTinChiTiet NVARCHAR(MAX),       -- JSON chứa thông tin chi tiết (CPU, RAM, etc.)
         NgayTao DATETIME2 DEFAULT SYSUTCDATETIME(),
         NgayCapNhat DATETIME2 DEFAULT SYSUTCDATETIME()

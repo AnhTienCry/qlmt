@@ -117,3 +117,9 @@ export const userSendFeedback = async (id: number, noiDung: string, guiCho: 'it'
   const response = await axiosInstance.post(`/proposals/${id}/user-feedback`, { noiDung, guiCho })
   return response.data
 }
+
+// IT: Xóa đề xuất
+export const deleteProposal = async (id: number): Promise<{ success: boolean; message: string }> => {
+  const response = await axiosInstance.delete(`/proposals/${id}`)
+  return response.data
+}

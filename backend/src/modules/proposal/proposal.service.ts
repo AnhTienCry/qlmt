@@ -623,6 +623,24 @@ export class ProposalService {
       completed: stats?.completed || 0,
     }
   }
+
+  /**
+   * Xóa đề xuất
+   */
+  async deleteProposal(id: number): Promise<void> {
+    // Kiểm tra đề xuất tồn tại
+    const proposal = await this.getProposalById(id)
+    if (!proposal) {
+      throw new Error('Không tìm thấy đề xuất')
+    }
+
+    // Xóa đề xuất (GhiChuIT, GhiChuGD được lưu trực tiếp trong YeuCauDeXuat)
+    const result = await db.query('DELETE FROM YeuCauDeXuat WHERE MaYC = @id', { id })
+    
+    if (result.rowsAffected[0] === 0) {
+      throw new Error('Không thể xóa đề xuất')
+    }
+  }
 }
 
 export const proposalService = new ProposalService()

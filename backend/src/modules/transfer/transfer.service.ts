@@ -29,8 +29,10 @@ class TransferService {
   async getAll(search?: string): Promise<TransferWithDetails[]> {
     let query = `
       SELECT dc.*, 
-             nvGiao.TenNV as TenNVGiao, 
+             nvGiao.TenNV as TenNVGiao,
+             nvGiao.MaNVText as MaNVGiaoText,
              nvNhan.TenNV as TenNVNhan,
+             nvNhan.MaNVText as MaNVNhanText,
              hh.TenHang,
              khoTu.TenKho as TenKhoTu,
              khoDen.TenKho as TenKhoDen
@@ -95,6 +97,15 @@ class TransferService {
       SoLuong: data.SoLuong || 1,
       DienGiai: data.DienGiai || null
     })
+
+    // Cập nhật người đang sử dụng thiết bị (NguoiNhan)
+    if (data.MaHang && data.NguoiNhan) {
+      await db.query(`
+        UPDATE HangHoa 
+        SET MaNV_DangDung = @MaNV, TrangThai = N'Đang dùng', NgayCapNhat = SYSUTCDATETIME()
+        WHERE MaHang = @MaHang
+      `, { MaNV: data.NguoiNhan, MaHang: data.MaHang })
+    }
 
     return {
       MaDC: result.recordset[0].MaDC,
