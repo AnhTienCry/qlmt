@@ -1,7 +1,13 @@
 -- =============================================
 -- QUẢN LÝ MÁY TÍNH (QLMT) - DATABASE SCHEMA
--- SQL Server - Version 2.0
--- Ngày cập nhật: 03/01/2026
+-- SQL Server - Complete Setup Script
+-- Ngày cập nhật: 12/01/2026
+-- =============================================
+-- Script này bao gồm:
+-- 1. Tạo Database
+-- 2. Tạo tất cả các bảng
+-- 3. Tạo các index và foreign key
+-- 4. Thêm dữ liệu mẫu
 -- =============================================
 
 -- =============================================
@@ -162,7 +168,7 @@ BEGIN
         Model NVARCHAR(100),
         NamSX INT,
         TrangThai NVARCHAR(50) DEFAULT N'Mới',  -- 'Mới', 'Đang dùng', 'Hỏng', 'Thanh lý'
-        MaNV_DangDung INT,                   -- Nhân viên đang sử dụng thiết bị
+        MaNV_DangDung INT FOREIGN KEY REFERENCES NhanVien(MaNV),  -- Nhân viên đang sử dụng thiết bị
         ThongTinChiTiet NVARCHAR(MAX),       -- JSON chứa thông tin chi tiết (CPU, RAM, etc.)
         NgayTao DATETIME2 DEFAULT SYSUTCDATETIME(),
         NgayCapNhat DATETIME2 DEFAULT SYSUTCDATETIME()
@@ -170,6 +176,9 @@ BEGIN
     
     -- Unique index cho mã tài sản
     CREATE UNIQUE INDEX UQ_HangHoa_MaTS ON HangHoa(MaTS) WHERE MaTS IS NOT NULL;
+    
+    -- Index cho người đang sử dụng
+    CREATE INDEX IX_HangHoa_MaNV_DangDung ON HangHoa(MaNV_DangDung);
     
     PRINT N'✅ Created table: HangHoa';
 END
@@ -422,4 +431,6 @@ PRINT N'  10. YeuCauDeXuat (Proposals)';
 PRINT N'  11. LichSuQuet (Scan History)';
 PRINT N'';
 PRINT N'Admin account sẽ được tạo tự động bởi backend.';
+PRINT N'  Username: admin';
+PRINT N'  Password: admin123';
 GO

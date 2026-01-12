@@ -11,11 +11,6 @@ node_modules
 # Build output
 dist
 
-# Environment files
-.env
-.env.local
-.env.*.local
-
 # IDE
 .idea
 .vscode
