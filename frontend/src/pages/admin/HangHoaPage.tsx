@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import axios from '@/libs/axios'
 import { Button, Input, Card, Select, Badge, Modal, Table, PageHeader, SearchInput } from '@/components/ui'
-import { Download } from 'lucide-react'
+import { Download, Plus } from 'lucide-react'
 import { exportHangHoa } from '@/libs/excel'
 
-type LoaiHang = 'may_tinh' | 'man_hinh' | 'phim' | 'chuot' | 'dau_chuyen' | 'khac'
+type LoaiHang = string
 
 interface HangHoa {
   MaHang: number
@@ -18,7 +18,21 @@ interface HangHoa {
   ThongTinChiTiet?: string
 }
 
-const LOAI_HANG_OPTIONS = [
+interface LoaiHangOption {
+  MaLoai: number
+  MaLoaiText: string
+  TenLoai: string
+}
+
+interface TrangThaiOption {
+  MaTrangThai: number
+  MaTrangThaiText: string
+  TenTrangThai: string
+  MauSac?: string
+}
+
+// Fallback options nếu API fail
+const DEFAULT_LOAI_HANG = [
   { value: 'may_tinh', label: 'Máy tính' },
   { value: 'man_hinh', label: 'Màn hình' },
   { value: 'phim', label: 'Bàn phím' },
@@ -27,7 +41,7 @@ const LOAI_HANG_OPTIONS = [
   { value: 'khac', label: 'Khác' }
 ]
 
-const TRANG_THAI_OPTIONS = [
+const DEFAULT_TRANG_THAI = [
   { value: 'Mới', label: 'Mới' },
   { value: 'Đang dùng', label: 'Đang dùng' },
   { value: 'Hỏng', label: 'Hỏng' },
@@ -44,17 +58,54 @@ const HangHoaPage = () => {
   const [filterTrangThai, setFilterTrangThai] = useState('')
   const [saving, setSaving] = useState(false)
   const [selectedIds, setSelectedIds] = useState<number[]>([])
+  
+  // Dynamic options from API
+  const [loaiHangOptions, setLoaiHangOptions] = useState<{value: string, label: string}[]>(DEFAULT_LOAI_HANG)
+  const [trangThaiOptions, setTrangThaiOptions] = useState<{value: string, label: string}[]>(DEFAULT_TRANG_THAI)
+
+  // Quick add modals
+  const [showAddLoaiModal, setShowAddLoaiModal] = useState(false)
+  const [showAddTrangThaiModal, setShowAddTrangThaiModal] = useState(false)
+  const [newLoai, setNewLoai] = useState({ MaLoaiText: '', TenLoai: '' })
+  const [newTrangThai, setNewTrangThai] = useState({ MaTrangThaiText: '', TenTrangThai: '', MauSac: 'blue' })
+  const [savingQuick, setSavingQuick] = useState(false)
 
   const [formData, setFormData] = useState({
     MaTS: '',
     TenHang: '',
-    LoaiHang: 'may_tinh' as LoaiHang,
+    LoaiHang: 'may_tinh',
     Hang: '',
     Model: '',
     NamSX: '',
     TrangThai: 'Mới',
     ThongTinChiTiet: ''
   })
+
+  // Fetch loại hàng và trạng thái từ API
+  const fetchOptions = useCallback(async () => {
+    try {
+      const [loaiRes, ttRes] = await Promise.all([
+        axios.get('/loaihang'),
+        axios.get('/trangthai')
+      ])
+      
+      if (loaiRes.data.data && loaiRes.data.data.length > 0) {
+        setLoaiHangOptions(loaiRes.data.data.map((item: LoaiHangOption) => ({
+          value: item.MaLoaiText,
+          label: item.TenLoai
+        })))
+      }
+      
+      if (ttRes.data.data && ttRes.data.data.length > 0) {
+        setTrangThaiOptions(ttRes.data.data.map((item: TrangThaiOption) => ({
+          value: item.TenTrangThai,
+          label: item.TenTrangThai
+        })))
+      }
+    } catch (error) {
+      console.warn('Không thể load options từ API, sử dụng mặc định')
+    }
+  }, [])
 
   const fetchData = useCallback(async () => {
     try {
@@ -74,6 +125,7 @@ const HangHoaPage = () => {
   }, [searchKeyword, filterLoai, filterTrangThai])
 
   useEffect(() => {
+    fetchOptions()
     fetchData()
   }, [filterLoai, filterTrangThai])
 
@@ -153,7 +205,7 @@ const HangHoaPage = () => {
     }
   }
 
-  const getLoaiHangLabel = (loai: LoaiHang) => LOAI_HANG_OPTIONS.find(o => o.value === loai)?.label || loai
+  const getLoaiHangLabel = (loai: LoaiHang) => loaiHangOptions.find(o => o.value === loai)?.label || loai
 
   const getTrangThaiBadge = (trangThai: string) => {
     const variants: Record<string, 'success' | 'info' | 'danger' | 'default'> = {
@@ -163,6 +215,46 @@ const HangHoaPage = () => {
       'Thanh lý': 'default'
     }
     return <Badge variant={variants[trangThai] || 'default'}>{trangThai}</Badge>
+  }
+
+  // Quick add Loại hàng
+  const handleAddLoaiHang = async () => {
+    if (!newLoai.MaLoaiText.trim() || !newLoai.TenLoai.trim()) {
+      alert('Vui lòng nhập đầy đủ thông tin')
+      return
+    }
+    try {
+      setSavingQuick(true)
+      await axios.post('/loaihang', newLoai)
+      setShowAddLoaiModal(false)
+      setNewLoai({ MaLoaiText: '', TenLoai: '' })
+      await fetchOptions() // Refresh options
+      setFormData(prev => ({ ...prev, LoaiHang: newLoai.MaLoaiText }))
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Có lỗi xảy ra')
+    } finally {
+      setSavingQuick(false)
+    }
+  }
+
+  // Quick add Trạng thái
+  const handleAddTrangThai = async () => {
+    if (!newTrangThai.MaTrangThaiText.trim() || !newTrangThai.TenTrangThai.trim()) {
+      alert('Vui lòng nhập đầy đủ thông tin')
+      return
+    }
+    try {
+      setSavingQuick(true)
+      await axios.post('/trangthai', newTrangThai)
+      setShowAddTrangThaiModal(false)
+      setNewTrangThai({ MaTrangThaiText: '', TenTrangThai: '', MauSac: 'blue' })
+      await fetchOptions() // Refresh options
+      setFormData(prev => ({ ...prev, TrangThai: newTrangThai.TenTrangThai }))
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Có lỗi xảy ra')
+    } finally {
+      setSavingQuick(false)
+    }
   }
 
   const columns = [
@@ -271,14 +363,14 @@ const HangHoaPage = () => {
             className="w-64"
           />
           <Select
-            options={LOAI_HANG_OPTIONS}
+            options={loaiHangOptions}
             value={filterLoai}
             onChange={setFilterLoai}
             placeholder="-- Tất cả loại --"
             className="w-48"
           />
           <Select
-            options={TRANG_THAI_OPTIONS}
+            options={trangThaiOptions}
             value={filterTrangThai}
             onChange={setFilterTrangThai}
             placeholder="-- Tất cả trạng thái --"
@@ -330,12 +422,25 @@ const HangHoaPage = () => {
               onChange={(e) => setFormData({ ...formData, MaTS: e.target.value })}
               placeholder="VD: TS001"
             />
-            <Select
-              label="Loại hàng *"
-              options={LOAI_HANG_OPTIONS}
-              value={formData.LoaiHang}
-              onChange={(v) => setFormData({ ...formData, LoaiHang: v as LoaiHang })}
-            />
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Loại hàng *</label>
+              <div className="flex gap-2">
+                <Select
+                  options={loaiHangOptions}
+                  value={formData.LoaiHang}
+                  onChange={(v) => setFormData({ ...formData, LoaiHang: v })}
+                  className="flex-1"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowAddLoaiModal(true)}
+                  className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                  title="Thêm loại hàng mới"
+                >
+                  <Plus className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
           </div>
 
           <Input
@@ -367,12 +472,25 @@ const HangHoaPage = () => {
             />
           </div>
 
-          <Select
-            label="Trạng thái"
-            options={TRANG_THAI_OPTIONS}
-            value={formData.TrangThai}
-            onChange={(v) => setFormData({ ...formData, TrangThai: v })}
-          />
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Trạng thái</label>
+            <div className="flex gap-2">
+              <Select
+                options={trangThaiOptions}
+                value={formData.TrangThai}
+                onChange={(v) => setFormData({ ...formData, TrangThai: v })}
+                className="flex-1"
+              />
+              <button
+                type="button"
+                onClick={() => setShowAddTrangThaiModal(true)}
+                className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                title="Thêm trạng thái mới"
+              >
+                <Plus className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">Thông tin chi tiết</label>
@@ -384,6 +502,77 @@ const HangHoaPage = () => {
               placeholder="CPU, RAM, SSD, thông số kỹ thuật..."
             />
           </div>
+        </div>
+      </Modal>
+
+      {/* Quick Add Loại hàng Modal */}
+      <Modal
+        isOpen={showAddLoaiModal}
+        onClose={() => setShowAddLoaiModal(false)}
+        title="Thêm loại hàng mới"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setShowAddLoaiModal(false)}>Hủy</Button>
+            <Button onClick={handleAddLoaiHang} loading={savingQuick}>Thêm</Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <Input
+            label="Mã loại *"
+            value={newLoai.MaLoaiText}
+            onChange={(e) => setNewLoai({ ...newLoai, MaLoaiText: e.target.value })}
+            placeholder="VD: may_tinh, phu_kien"
+          />
+          <Input
+            label="Tên loại *"
+            value={newLoai.TenLoai}
+            onChange={(e) => setNewLoai({ ...newLoai, TenLoai: e.target.value })}
+            placeholder="VD: Máy tính, Phụ kiện"
+          />
+        </div>
+      </Modal>
+
+      {/* Quick Add Trạng thái Modal */}
+      <Modal
+        isOpen={showAddTrangThaiModal}
+        onClose={() => setShowAddTrangThaiModal(false)}
+        title="Thêm trạng thái mới"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setShowAddTrangThaiModal(false)}>Hủy</Button>
+            <Button onClick={handleAddTrangThai} loading={savingQuick}>Thêm</Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <Input
+            label="Mã trạng thái *"
+            value={newTrangThai.MaTrangThaiText}
+            onChange={(e) => setNewTrangThai({ ...newTrangThai, MaTrangThaiText: e.target.value })}
+            placeholder="VD: moi, dang_dung"
+          />
+          <Input
+            label="Tên trạng thái *"
+            value={newTrangThai.TenTrangThai}
+            onChange={(e) => setNewTrangThai({ ...newTrangThai, TenTrangThai: e.target.value })}
+            placeholder="VD: Mới, Đang dùng"
+          />
+          <Select
+            label="Màu sắc"
+            options={[
+              { value: 'blue', label: 'Xanh dương' },
+              { value: 'green', label: 'Xanh lá' },
+              { value: 'red', label: 'Đỏ' },
+              { value: 'yellow', label: 'Vàng' },
+              { value: 'purple', label: 'Tím' },
+              { value: 'gray', label: 'Xám' }
+            ]}
+            value={newTrangThai.MauSac}
+            onChange={(v) => setNewTrangThai({ ...newTrangThai, MauSac: v })}
+          />
         </div>
       </Modal>
     </div>

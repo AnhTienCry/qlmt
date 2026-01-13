@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express'
 import jwt from 'jsonwebtoken'
 import { config } from '../../config'
 import { UserRole } from '../../modules/auth/auth.types'
+import { db } from '../../config/database'
 
 interface JwtPayload {
   userId: number
@@ -13,11 +14,39 @@ declare global {
     interface Request {
       userId?: number
       userRole?: UserRole
+      maNV?: number
     }
   }
 }
 
-export const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
+/**
+ * Xác định role dựa trên mã phòng ban (MaPBText)
+ */
+function determineRoleByDepartment(maPBText: string | null, currentRole: UserRole): UserRole {
+  if (currentRole === 'admin') {
+    return 'admin'
+  }
+  
+  if (!maPBText) {
+    return currentRole
+  }
+  
+  const deptCode = maPBText.toUpperCase().trim()
+  
+  // Phòng Giám đốc
+  if (['GD', 'GIAMDOC', 'DIRECTOR', 'BGD', 'BANGIAMDOC'].includes(deptCode)) {
+    return 'director'
+  }
+  
+  // Phòng IT
+  if (['IT', 'CNTT', 'CONGNGHE', 'TECH'].includes(deptCode)) {
+    return 'it'
+  }
+  
+  return 'user'
+}
+
+export const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const authHeader = req.headers.authorization
 
@@ -32,7 +61,30 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction) 
     const decoded = jwt.verify(token, config.jwt.secret) as JwtPayload
 
     req.userId = decoded.userId
-    req.userRole = decoded.role
+
+    // QUAN TRỌNG: Luôn lấy role mới nhất từ DB theo phòng ban
+    // Không dùng role từ JWT vì có thể bị cũ
+    const result = await db.query<any>(
+      `SELECT u.Role, u.MaNV, pb.MaPBText
+       FROM Users u
+       LEFT JOIN NhanVien nv ON u.MaNV = nv.MaNV
+       LEFT JOIN PhongBan pb ON nv.MaPB = pb.MaPB
+       WHERE u.UserId = @userId AND u.IsActive = 1`,
+      { userId: decoded.userId }
+    )
+
+    const user = result.recordset[0]
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Người dùng không tồn tại hoặc đã bị vô hiệu',
+      })
+    }
+
+    // Xác định role theo phòng ban
+    req.userRole = determineRoleByDepartment(user.MaPBText, user.Role as UserRole)
+    req.maNV = user.MaNV || undefined
+
     next()
   } catch (error) {
     return res.status(401).json({

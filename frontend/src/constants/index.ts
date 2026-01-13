@@ -21,6 +21,8 @@ export const ROUTES = {
   HANGHOA: '/dashboard/hanghoa',
   TRANSFER: '/dashboard/transfer',
   REPORT: '/dashboard/report',
+  LOAIHANG: '/dashboard/loaihang',
+  TRANGTHAI: '/dashboard/trangthai',
   
   // IT routes
   IT_DASHBOARD: '/it',
@@ -34,6 +36,8 @@ export const ROUTES = {
   IT_STOCK_OUT: '/it/stock-out',
   IT_TRANSFER: '/it/transfer',
   IT_REPORT: '/it/report',
+  IT_LOAIHANG: '/it/loaihang',
+  IT_TRANGTHAI: '/it/trangthai',
   
   // Director routes
   DIRECTOR_DASHBOARD: '/director',

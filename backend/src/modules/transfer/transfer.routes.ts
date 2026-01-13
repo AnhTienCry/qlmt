@@ -10,6 +10,7 @@ router.get('/sophieu', transferController.getSoPhieu)
 router.get('/', transferController.getAll)
 router.get('/:id', transferController.getById)
 router.post('/', transferController.create)
+router.put('/:id', transferController.update)
 router.delete('/:id', transferController.delete)
 
 export default router

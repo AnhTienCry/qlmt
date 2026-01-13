@@ -113,6 +113,42 @@ class TransferService {
     }
   }
 
+  async update(id: number, data: Partial<CreateTransferDto>): Promise<TransferWithDetails | null> {
+    // Lấy thông tin phiếu cũ để biết NguoiNhan cũ
+    const oldTransfer = await this.getById(id)
+    if (!oldTransfer) return null
+
+    const fields: string[] = []
+    const params: Record<string, unknown> = { id }
+
+    if (data.NgayDC !== undefined) { fields.push('NgayDC = @NgayDC'); params.NgayDC = data.NgayDC }
+    if (data.MaHang !== undefined) { fields.push('MaHang = @MaHang'); params.MaHang = data.MaHang }
+    if (data.TuKho !== undefined) { fields.push('TuKho = @TuKho'); params.TuKho = data.TuKho || null }
+    if (data.DenKho !== undefined) { fields.push('DenKho = @DenKho'); params.DenKho = data.DenKho || null }
+    if (data.NguoiGiao !== undefined) { fields.push('NguoiGiao = @NguoiGiao'); params.NguoiGiao = data.NguoiGiao || null }
+    if (data.NguoiNhan !== undefined) { fields.push('NguoiNhan = @NguoiNhan'); params.NguoiNhan = data.NguoiNhan || null }
+    if (data.SoLuong !== undefined) { fields.push('SoLuong = @SoLuong'); params.SoLuong = data.SoLuong || 1 }
+    if (data.DienGiai !== undefined) { fields.push('DienGiai = @DienGiai'); params.DienGiai = data.DienGiai || null }
+
+    if (fields.length === 0) return this.getById(id)
+
+    await db.query(`UPDATE DieuChuyen SET ${fields.join(', ')} WHERE MaDC = @id`, params)
+
+    // Nếu NguoiNhan thay đổi, cập nhật người đang sử dụng thiết bị
+    const maHang = data.MaHang ?? oldTransfer.MaHang
+    const newNguoiNhan = data.NguoiNhan ?? oldTransfer.NguoiNhan
+    
+    if (maHang && newNguoiNhan) {
+      await db.query(`
+        UPDATE HangHoa 
+        SET MaNV_DangDung = @MaNV, TrangThai = N'Đang dùng', NgayCapNhat = SYSUTCDATETIME()
+        WHERE MaHang = @MaHang
+      `, { MaNV: newNguoiNhan, MaHang: maHang })
+    }
+
+    return this.getById(id)
+  }
+
   async delete(id: number): Promise<boolean> {
     const result = await db.query('DELETE FROM DieuChuyen WHERE MaDC = @id', { id })
     return result.rowsAffected[0] > 0

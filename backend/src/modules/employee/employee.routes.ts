@@ -59,7 +59,10 @@ router.get('/', async (req, res) => {
 // Thêm nhân viên - tạo tài khoản với mật khẩu mặc định
 router.post('/', async (req, res) => {
   try {
-    const { maNVText, tenNV, email, soDienThoai, maPB, ngayBDLV } = req.body
+    const { tenNV, email, soDienThoai, maPB, ngayBDLV } = req.body
+    // Trim maNVText để tránh lỗi khoảng trắng
+    const maNVText = (req.body.maNVText || '').trim()
+    
     if (!maNVText) {
       return res.status(400).json({ error: 'Mã nhân viên là bắt buộc' })
     }
@@ -98,8 +101,8 @@ router.post('/', async (req, res) => {
     
     const newEmployee = result.recordset[0]
     
-    // 2. Tạo username = MaNVText (viết thường)
-    const username = maNVText.toLowerCase()
+    // 2. Tạo username = MaNVText (viết thường, trim khoảng trắng)
+    const username = maNVText.toLowerCase().trim()
     const matKhauMacDinh = `${username}@123`
     const hashedPassword = await bcrypt.hash(matKhauMacDinh, 10)
     

@@ -5,12 +5,70 @@ Hệ thống quản lý thiết bị máy tính, kho hàng và yêu cầu đề 
 ## 📋 Mục lục
 
 - [Tính năng](#-tính-năng)
+- [Chạy nhanh với Docker](#-chạy-nhanh-với-docker-khuyến-nghị)
 - [Yêu cầu hệ thống](#-yêu-cầu-hệ-thống)
 - [Cài đặt Local](#-cài-đặt-local)
 - [Deploy Production](#-deploy-production)
 - [Cấu trúc dự án](#-cấu-trúc-dự-án)
 - [API Documentation](#-api-documentation)
 - [Tài khoản mặc định](#-tài-khoản-mặc-định)
+
+---
+
+## 🐳 Chạy nhanh với Docker (Khuyến nghị)
+
+**Chỉ cần 2 bước để chạy toàn bộ hệ thống!**
+
+### Yêu cầu
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) đã được cài đặt
+
+### Bước 1: Clone repository
+```bash
+git clone <repository-url>
+cd qlmt
+```
+
+### Bước 2: Khởi động hệ thống
+```bash
+docker-compose up -d --build
+```
+
+⏳ **Chờ khoảng 2-3 phút** để Docker tải images và khởi động các services.
+
+### ✅ Truy cập ứng dụng
+- **Frontend**: http://localhost
+- **Backend API**: http://localhost:5000/api
+- **Tài khoản admin**: `admin` / `admin123`
+
+### Các lệnh Docker hữu ích
+```bash
+# Xem logs
+docker-compose logs -f
+
+# Xem logs của từng service
+docker-compose logs -f backend
+docker-compose logs -f frontend
+docker-compose logs -f db
+
+# Dừng hệ thống
+docker-compose down
+
+# Dừng và xóa dữ liệu database
+docker-compose down -v
+
+# Khởi động lại
+docker-compose restart
+
+# Rebuild và khởi động lại
+docker-compose up -d --build
+```
+
+### Cấu hình Docker (Tùy chọn)
+Các biến môi trường mặc định trong `docker-compose.yml`:
+- **Database password**: `QlmtPassword123!`
+- **JWT Secret**: `qlmt_docker_jwt_secret_key_2026`
+
+Bạn có thể thay đổi trong file `docker-compose.yml` trước khi chạy.
 
 ---
 

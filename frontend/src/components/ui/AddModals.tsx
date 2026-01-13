@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import axios from '@/libs/axios'
 import { Modal, Input, Button, Select } from '@/components/ui'
 
@@ -11,7 +11,8 @@ interface AddHangHoaModalProps {
   onSuccess: (newItem: any) => void
 }
 
-const LOAI_HANG_OPTIONS = [
+// Fallback options nếu API không có dữ liệu
+const DEFAULT_LOAI_HANG = [
   { value: 'may_tinh', label: 'Máy tính' },
   { value: 'laptop', label: 'Laptop' },
   { value: 'man_hinh', label: 'Màn hình' },
@@ -21,7 +22,7 @@ const LOAI_HANG_OPTIONS = [
   { value: 'khac', label: 'Khác' }
 ]
 
-const TRANG_THAI_OPTIONS = [
+const DEFAULT_TRANG_THAI = [
   { value: 'Mới', label: 'Mới' },
   { value: 'Đang dùng', label: 'Đang dùng' },
   { value: 'Hỏng', label: 'Hỏng' },
@@ -30,6 +31,8 @@ const TRANG_THAI_OPTIONS = [
 
 export const AddHangHoaModal: React.FC<AddHangHoaModalProps> = ({ isOpen, onClose, onSuccess }) => {
   const [saving, setSaving] = useState(false)
+  const [loaiHangOptions, setLoaiHangOptions] = useState(DEFAULT_LOAI_HANG)
+  const [trangThaiOptions, setTrangThaiOptions] = useState(DEFAULT_TRANG_THAI)
   const [formData, setFormData] = useState({
     MaTS: '',
     TenHang: '',
@@ -40,6 +43,38 @@ export const AddHangHoaModal: React.FC<AddHangHoaModalProps> = ({ isOpen, onClos
     TrangThai: 'Mới',
     ThongTinChiTiet: ''
   })
+
+  // Fetch options từ API
+  const fetchOptions = useCallback(async () => {
+    try {
+      const [loaiRes, ttRes] = await Promise.all([
+        axios.get('/loaihang'),
+        axios.get('/trangthai')
+      ])
+      
+      if (loaiRes.data.data && loaiRes.data.data.length > 0) {
+        setLoaiHangOptions(loaiRes.data.data.map((item: any) => ({
+          value: item.MaLoaiText,
+          label: item.TenLoai
+        })))
+      }
+      
+      if (ttRes.data.data && ttRes.data.data.length > 0) {
+        setTrangThaiOptions(ttRes.data.data.map((item: any) => ({
+          value: item.TenTrangThai,
+          label: item.TenTrangThai
+        })))
+      }
+    } catch (error) {
+      console.warn('Không thể load options từ API')
+    }
+  }, [])
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchOptions()
+    }
+  }, [isOpen, fetchOptions])
 
   const handleSave = async () => {
     if (!formData.TenHang.trim()) {
@@ -86,7 +121,7 @@ export const AddHangHoaModal: React.FC<AddHangHoaModalProps> = ({ isOpen, onClos
           />
           <Select
             label="Loại hàng *"
-            options={LOAI_HANG_OPTIONS}
+            options={loaiHangOptions}
             value={formData.LoaiHang}
             onChange={(v) => setFormData({ ...formData, LoaiHang: v })}
           />
@@ -123,7 +158,7 @@ export const AddHangHoaModal: React.FC<AddHangHoaModalProps> = ({ isOpen, onClos
 
         <Select
           label="Trạng thái"
-          options={TRANG_THAI_OPTIONS}
+          options={trangThaiOptions}
           value={formData.TrangThai}
           onChange={(v) => setFormData({ ...formData, TrangThai: v })}
         />

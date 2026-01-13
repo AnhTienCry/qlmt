@@ -2,18 +2,54 @@ import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import db from '../../config/database'
 import { config } from '../../config'
-import { User, LoginRequest, LoginResponse, RegisterRequest, ChangePasswordRequest, CreateUserRequest, UpdateUserRequest } from './auth.types'
+import { User, LoginRequest, LoginResponse, RegisterRequest, ChangePasswordRequest, CreateUserRequest, UpdateUserRequest, UserRole } from './auth.types'
+
+/**
+ * Xác định role dựa trên mã phòng ban (MaPBText)
+ * - GD, GIAMDOC, DIRECTOR → director
+ * - IT, CNTT → it
+ * - Các phòng ban khác → user
+ * - Không có phòng ban và role là admin → admin
+ */
+function determineRoleByDepartment(maPBText: string | null, currentRole: UserRole): UserRole {
+  // Nếu là admin (không có nhân viên liên kết) thì giữ nguyên
+  if (currentRole === 'admin') {
+    return 'admin'
+  }
+  
+  if (!maPBText) {
+    return currentRole // Giữ role hiện tại nếu không có phòng ban
+  }
+  
+  const deptCode = maPBText.toUpperCase().trim()
+  
+  // Phòng Giám đốc
+  if (['GD', 'GIAMDOC', 'DIRECTOR', 'BGD', 'BANGIAMDOC'].includes(deptCode)) {
+    return 'director'
+  }
+  
+  // Phòng IT
+  if (['IT', 'CNTT', 'CONGNGHE', 'TECH'].includes(deptCode)) {
+    return 'it'
+  }
+  
+  // Các phòng ban khác → user thường
+  return 'user'
+}
 
 export class AuthService {
   async login(data: LoginRequest): Promise<LoginResponse> {
-    // Lấy thông tin user và nhân viên nếu có
+    // Trim username để tránh lỗi do khoảng trắng
+    const trimmedUsername = data.username.trim()
+    
+    // Lấy thông tin user và nhân viên nếu có, bao gồm MaPBText
     const result = await db.query<any>(
-      `SELECT u.*, nv.TenNV, nv.MaPB, pb.TenPB 
+      `SELECT u.*, nv.TenNV, nv.MaPB, pb.TenPB, pb.MaPBText
        FROM Users u
        LEFT JOIN NhanVien nv ON u.MaNV = nv.MaNV
        LEFT JOIN PhongBan pb ON nv.MaPB = pb.MaPB
-       WHERE u.Username = @username AND u.IsActive = 1`,
-      { username: data.username }
+       WHERE LTRIM(RTRIM(u.Username)) = @username AND u.IsActive = 1`,
+      { username: trimmedUsername }
     )
 
     const user = result.recordset[0]
@@ -32,8 +68,11 @@ export class AuthService {
       { userId: user.UserId }
     )
 
+    // Xác định role dựa trên phòng ban
+    const effectiveRole = determineRoleByDepartment(user.MaPBText, user.Role as UserRole)
+
     const token = jwt.sign(
-      { userId: user.UserId, role: user.Role },
+      { userId: user.UserId, role: effectiveRole },
       config.jwt.secret,
       { expiresIn: config.jwt.expiresIn } as jwt.SignOptions
     )
@@ -42,11 +81,12 @@ export class AuthService {
       user: {
         userId: user.UserId,
         username: user.Username,
-        role: user.Role,
+        role: effectiveRole,
         maNV: user.MaNV || null,
         tenNV: user.TenNV || null,
         maPB: user.MaPB || null,
         tenPB: user.TenPB || null,
+        maPBText: user.MaPBText || null,
       },
       token,
     }
@@ -104,6 +144,48 @@ export class AuthService {
       return decoded
     } catch (error) {
       throw new Error('Token không hợp lệ')
+    }
+  }
+
+  /**
+   * Lấy thông tin user đầy đủ với role theo phòng ban
+   */
+  async getCurrentUser(userId: number): Promise<{
+    userId: number
+    username: string
+    role: UserRole
+    maNV: number | null
+    tenNV: string | null
+    maPB: number | null
+    tenPB: string | null
+    maPBText: string | null
+  }> {
+    const result = await db.query<any>(
+      `SELECT u.*, nv.TenNV, nv.MaPB, pb.TenPB, pb.MaPBText
+       FROM Users u
+       LEFT JOIN NhanVien nv ON u.MaNV = nv.MaNV
+       LEFT JOIN PhongBan pb ON nv.MaPB = pb.MaPB
+       WHERE u.UserId = @userId AND u.IsActive = 1`,
+      { userId }
+    )
+
+    const user = result.recordset[0]
+    if (!user) {
+      throw new Error('Người dùng không tồn tại')
+    }
+
+    // Xác định role dựa trên phòng ban
+    const effectiveRole = determineRoleByDepartment(user.MaPBText, user.Role as UserRole)
+
+    return {
+      userId: user.UserId,
+      username: user.Username,
+      role: effectiveRole,
+      maNV: user.MaNV || null,
+      tenNV: user.TenNV || null,
+      maPB: user.MaPB || null,
+      tenPB: user.TenPB || null,
+      maPBText: user.MaPBText || null,
     }
   }
 

@@ -19,6 +19,8 @@ import HangHoaPage from '@/pages/admin/HangHoaPage'
 import TransferPage from '@/pages/admin/TransferPage'
 import UsersPage from '@/pages/admin/UsersPage'
 import ReportPage from '@/pages/admin/ReportPage'
+import LoaiHangPage from '@/pages/admin/LoaiHangPage'
+import TrangThaiPage from '@/pages/admin/TrangThaiPage'
 import ChangePasswordPage from '@/pages/ChangePasswordPage'
 
 // User pages
@@ -76,6 +78,8 @@ function App() {
         <Route path="transfer" element={<TransferPage />} />
         <Route path="report" element={<ReportPage />} />
         <Route path="users" element={<UsersPage />} />
+        <Route path="loaihang" element={<LoaiHangPage />} />
+        <Route path="trangthai" element={<TrangThaiPage />} />
       </Route>
       
       {/* ========== IT ROUTES ========== */}
@@ -98,6 +102,8 @@ function App() {
         <Route path="stock-out" element={<StockOutPage />} />
         <Route path="transfer" element={<TransferPage />} />
         <Route path="report" element={<ReportPage />} />
+        <Route path="loaihang" element={<LoaiHangPage />} />
+        <Route path="trangthai" element={<TrangThaiPage />} />
       </Route>
       
       {/* ========== DIRECTOR ROUTES ========== */}

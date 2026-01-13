@@ -42,11 +42,13 @@ const TransferPage = () => {
   const [items, setItems] = useState<DieuChuyen[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
+  const [editingItem, setEditingItem] = useState<DieuChuyen | null>(null)
   const [searchKeyword, setSearchKeyword] = useState('')
   const [saving, setSaving] = useState(false)
   const [selectedIds, setSelectedIds] = useState<number[]>([])
   
   const [hangHoas, setHangHoas] = useState<HangHoa[]>([])
+  const [allHangHoas, setAllHangHoas] = useState<HangHoa[]>([])
   const [nhanViens, setNhanViens] = useState<NhanVien[]>([])
   const [soPhieuMoi, setSoPhieuMoi] = useState('')
 
@@ -63,14 +65,21 @@ const TransferPage = () => {
     try {
       setLoading(true)
       const params = searchKeyword ? { search: searchKeyword } : {}
-      const [dcRes, hhRes, nvRes] = await Promise.all([
+      const [dcRes, hhRes, allHhRes, nvRes] = await Promise.all([
         axios.get('/transfer', { params }),
         axios.get('/stock/hangdaxuat'),
+        axios.get('/hanghoa'),
         axios.get('/employees')
       ])
       
       setItems(dcRes.data.data || [])
       setHangHoas((hhRes.data.data || []).map((h: any) => ({
+        MaHang: h.MaHang,
+        TenHang: h.TenHang,
+        TenNV: h.TenNV_DangDung,
+        MaNV_DangDung: h.MaNV_DangDung
+      })))
+      setAllHangHoas((allHhRes.data.data || []).map((h: any) => ({
         MaHang: h.MaHang,
         TenHang: h.TenHang,
         TenNV: h.TenNV_DangDung,
@@ -89,6 +98,7 @@ const TransferPage = () => {
   }, [])
 
   const openAddModal = async () => {
+    setEditingItem(null)
     try {
       const res = await axios.get('/transfer/sophieu')
       setSoPhieuMoi(res.data.data.soPhieu)
@@ -101,6 +111,21 @@ const TransferPage = () => {
       NguoiGiao: '',
       NguoiNhan: '',
       DienGiai: ''
+    })
+    setShowModal(true)
+  }
+
+  const openEditModal = (item: DieuChuyen) => {
+    setEditingItem(item)
+    setSoPhieuMoi(item.SoPhieuDC)
+    // Format date to YYYY-MM-DD for input
+    const ngayDC = item.NgayDC ? item.NgayDC.split('T')[0] : getLocalDate()
+    setFormData({
+      NgayDC: ngayDC,
+      MaHang: item.MaHang?.toString() || '',
+      NguoiGiao: item.NguoiGiao?.toString() || '',
+      NguoiNhan: item.NguoiNhan?.toString() || '',
+      DienGiai: item.DienGiai || ''
     })
     setShowModal(true)
   }
@@ -128,15 +153,23 @@ const TransferPage = () => {
       }
 
       setSaving(true)
-      await axios.post('/transfer', {
+      
+      const payload = {
         NgayDC: formData.NgayDC,
         MaHang: parseInt(formData.MaHang),
         NguoiGiao: parseInt(formData.NguoiGiao),
         NguoiNhan: parseInt(formData.NguoiNhan),
         DienGiai: formData.DienGiai || null
-      })
+      }
+
+      if (editingItem) {
+        await axios.put(`/transfer/${editingItem.MaDC}`, payload)
+      } else {
+        await axios.post('/transfer', payload)
+      }
       
       setShowModal(false)
+      setEditingItem(null)
       fetchData()
     } catch (error: any) {
       alert(error.response?.data?.message || 'Có lỗi xảy ra')
@@ -234,15 +267,26 @@ const TransferPage = () => {
       headerClassName: 'text-right',
       className: 'text-right',
       render: (item: DieuChuyen) => (
-        <button
-          onClick={(e) => { e.stopPropagation(); handleDelete(item) }}
-          className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-          title="Xóa"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-          </svg>
-        </button>
+        <div className="flex items-center justify-end gap-1">
+          <button
+            onClick={(e) => { e.stopPropagation(); openEditModal(item) }}
+            className="p-2 text-gray-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors"
+            title="Sửa"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); handleDelete(item) }}
+            className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+            title="Xóa"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
+        </div>
       )
     }
   ]
@@ -327,13 +371,13 @@ const TransferPage = () => {
       {/* Modal */}
       <Modal
         isOpen={showModal}
-        onClose={() => setShowModal(false)}
-        title="Tạo phiếu điều chuyển"
+        onClose={() => { setShowModal(false); setEditingItem(null) }}
+        title={editingItem ? 'Sửa phiếu điều chuyển' : 'Tạo phiếu điều chuyển'}
         size="lg"
         footer={
           <>
-            <Button variant="secondary" onClick={() => setShowModal(false)}>Hủy</Button>
-            <Button onClick={handleSave} loading={saving}>Lưu phiếu</Button>
+            <Button variant="secondary" onClick={() => { setShowModal(false); setEditingItem(null) }}>Hủy</Button>
+            <Button onClick={handleSave} loading={saving}>{editingItem ? 'Cập nhật' : 'Lưu phiếu'}</Button>
           </>
         }
       >
@@ -358,12 +402,13 @@ const TransferPage = () => {
 
           <Select
             label="Hàng hóa cần điều chuyển *"
-            options={hangHoas.map(h => ({ 
+            options={(editingItem ? allHangHoas : hangHoas).map(h => ({ 
               value: h.MaHang, 
               label: `${h.TenHang}${h.TenNV ? ` (đang: ${h.TenNV})` : ''}`
             }))}
             value={formData.MaHang}
             onChange={handleSelectHangHoa}
+            disabled={!!editingItem}
             placeholder="-- Chọn hàng hóa --"
           />
 

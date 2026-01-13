@@ -37,12 +37,21 @@ export class AuthController {
 
   async me(req: Request, res: Response, next: NextFunction) {
     try {
-      const token = req.headers.authorization?.split(' ')[1] || ''
-      const result = await authService.verifyToken(token)
+      const userId = req.userId
+      
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: 'Không tìm thấy thông tin người dùng',
+        })
+      }
+
+      // Lấy thông tin user đầy đủ với role theo phòng ban
+      const user = await authService.getCurrentUser(userId)
 
       res.json({
         success: true,
-        data: { userId: result.userId, role: result.role },
+        data: user,
       })
     } catch (error) {
       next(error)

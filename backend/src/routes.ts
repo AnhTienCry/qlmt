@@ -9,6 +9,8 @@ import proposalRoutes from './modules/proposal/proposal.routes'
 import nccRoutes from './modules/ncc/ncc.routes'
 import hanghoaRoutes from './modules/hanghoa/hanghoa.routes'
 import transferRoutes from './modules/transfer/transfer.routes'
+import loaihangRoutes from './modules/loaihang/loaihang.routes'
+import trangthaiRoutes from './modules/trangthai/trangthai.routes'
 
 const router = Router()
 
@@ -24,5 +26,7 @@ router.use('/proposals', proposalRoutes)
 router.use('/ncc', nccRoutes)               // Nhà cung cấp
 router.use('/hanghoa', hanghoaRoutes)       // Hàng hóa
 router.use('/transfer', transferRoutes)     // Điều chuyển
+router.use('/loaihang', loaihangRoutes)     // Loại hàng
+router.use('/trangthai', trangthaiRoutes)   // Trạng thái
 
 export default router

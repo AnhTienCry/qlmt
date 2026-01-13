@@ -10,6 +10,7 @@ export interface User {
   tenNV?: string | null
   maPB?: number | null
   tenPB?: string | null
+  maPBText?: string | null
 }
 
 // Admin User type (returned from admin API - /auth/users)

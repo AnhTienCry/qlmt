@@ -1,5 +1,5 @@
 import api from '@/libs/axios'
-import { LoginRequest, RegisterRequest, LoginResponse, ChangePasswordRequest, CreateUserRequest, UpdateUserRequest, AdminUser } from '@/types/auth.types'
+import { LoginRequest, RegisterRequest, LoginResponse, ChangePasswordRequest, CreateUserRequest, UpdateUserRequest, AdminUser, User } from '@/types/auth.types'
 import { ApiResponse } from '@/types/api.types'
 
 export const authApi = {
@@ -17,8 +17,8 @@ export const authApi = {
     await api.post('/auth/logout')
   },
 
-  getMe: async () => {
-    const response = await api.get<ApiResponse<{ userId: number; role: string }>>('/auth/me')
+  getMe: async (): Promise<User> => {
+    const response = await api.get<ApiResponse<User>>('/auth/me')
     return response.data.data!
   },
 

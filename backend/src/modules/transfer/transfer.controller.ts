@@ -47,6 +47,23 @@ class TransferController {
     }
   }
 
+  async update(req: Request, res: Response) {
+    try {
+      const id = parseInt(req.params.id)
+      const result = await transferService.update(id, req.body)
+      if (!result) {
+        return res.status(404).json({ success: false, message: 'Không tìm thấy phiếu điều chuyển' })
+      }
+      res.json({ 
+        success: true, 
+        message: 'Cập nhật phiếu điều chuyển thành công',
+        data: result 
+      })
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message })
+    }
+  }
+
   async delete(req: Request, res: Response) {
     try {
       const id = parseInt(req.params.id)

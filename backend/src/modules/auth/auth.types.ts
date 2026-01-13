@@ -35,6 +35,7 @@ export interface LoginResponse {
     tenNV?: string | null
     maPB?: number | null
     tenPB?: string | null
+    maPBText?: string | null
   }
   token: string
 }
